@@ -303,12 +303,35 @@ def public_event_details(slug: str):
     """, (event["id"],))
     albums = [dict(row) for row in cursor.fetchall()]
     
+    # Auto-populate album cover image if not explicitly set
+    for a in albums:
+        if not a["cover_image_path"]:
+            cursor.execute("""
+                SELECT rel_path FROM photos 
+                WHERE album_id = ? AND is_deleted = 0 AND is_hidden = 0 
+                ORDER BY is_featured DESC, id DESC LIMIT 1
+            """, (a["id"],))
+            p_row = cursor.fetchone()
+            if p_row:
+                a["cover_image_path"] = p_row["rel_path"]
+
+    event_dict = dict(event)
+    if not event_dict["cover_image_path"]:
+        cursor.execute("""
+            SELECT rel_path FROM photos
+            WHERE event_id = ? AND is_deleted = 0 AND is_hidden = 0
+            ORDER BY is_featured DESC, id DESC LIMIT 1
+        """, (event["id"],))
+        e_cov = cursor.fetchone()
+        if e_cov:
+            event_dict["cover_image_path"] = e_cov["rel_path"]
+    
     cursor.execute("SELECT COUNT(id) as total FROM photos WHERE event_id = ? AND is_deleted = 0", (event["id"],))
     photo_count = cursor.fetchone()["total"]
     conn.close()
     
     return {
-        "event": dict(event),
+        "event": event_dict,
         "albums": albums,
         "photo_count": photo_count
     }
@@ -515,6 +538,137 @@ def admin_create_album(slug: str, payload: dict, token: str = Depends(get_auth_t
         (PHOTOS / "events" / slug / album_slug).mkdir(parents=True, exist_ok=True)
         
     return {"status": "ok", "album_slug": album_slug}
+
+@app.put("/api/admin/events/{slug}/albums/{album_id}")
+def admin_update_album(slug: str, album_id: int, payload: dict, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE albums
+        SET name = COALESCE(?, name),
+            is_published = COALESCE(?, is_published),
+            sort_order = COALESCE(?, sort_order),
+            cover_image_path = COALESCE(?, cover_image_path)
+        WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
+    """, (
+        payload.get("name"),
+        payload.get("is_published"),
+        payload.get("sort_order"),
+        payload.get("cover_image_path"),
+        album_id,
+        slug
+    ))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+@app.delete("/api/admin/events/{slug}/albums/{album_id}")
+def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE photos SET album_id = NULL 
+        WHERE album_id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
+    """, (album_id, slug))
+    cursor.execute("""
+        DELETE FROM albums 
+        WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
+    """, (album_id, slug))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+@app.get("/api/admin/events/{slug}/photos")
+def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    if album_id:
+        cursor.execute("""
+            SELECT p.*, a.name as album_name, a.slug as album_slug
+            FROM photos p
+            JOIN events e ON p.event_id = e.id
+            LEFT JOIN albums a ON p.album_id = a.id
+            WHERE e.slug = ? AND p.album_id = ? AND p.is_deleted = 0
+            ORDER BY p.is_featured DESC, p.id DESC
+        """, (slug, album_id))
+    else:
+        cursor.execute("""
+            SELECT p.*, a.name as album_name, a.slug as album_slug
+            FROM photos p
+            JOIN events e ON p.event_id = e.id
+            LEFT JOIN albums a ON p.album_id = a.id
+            WHERE e.slug = ? AND p.is_deleted = 0
+            ORDER BY p.is_featured DESC, p.id DESC
+        """, (slug,))
+    photos = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return {"photos": photos}
+
+@app.post("/api/admin/events/{slug}/photos/bulk-move")
+def admin_bulk_move_photos(slug: str, payload: dict, token: str = Depends(get_auth_token)):
+    photo_ids = payload.get("photo_ids", [])
+    target_album_id = payload.get("target_album_id")
+    if not photo_ids:
+        raise HTTPException(400, "No photos selected.")
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    if target_album_id:
+        cursor.execute("SELECT id FROM albums WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)", (target_album_id, slug))
+        if not cursor.fetchone():
+            conn.close()
+            raise HTTPException(400, "Invalid target album.")
+            
+    placeholders = ",".join("?" for _ in photo_ids)
+    cursor.execute(f"""
+        UPDATE photos SET album_id = ? 
+        WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)
+    """, [target_album_id] + photo_ids + [slug])
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "moved_count": len(photo_ids)}
+
+@app.post("/api/admin/events/{slug}/photos/bulk-action")
+def admin_bulk_photo_action(slug: str, payload: dict, token: str = Depends(get_auth_token)):
+    photo_ids = payload.get("photo_ids", [])
+    action = payload.get("action", "")
+    if not photo_ids:
+        raise HTTPException(400, "No photos selected.")
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    placeholders = ",".join("?" for _ in photo_ids)
+    
+    if action == "hide":
+        cursor.execute(f"UPDATE photos SET is_hidden = 1 WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)", photo_ids + [slug])
+    elif action == "unhide":
+        cursor.execute(f"UPDATE photos SET is_hidden = 0 WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)", photo_ids + [slug])
+    elif action == "feature":
+        cursor.execute(f"UPDATE photos SET is_featured = 1 WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)", photo_ids + [slug])
+    elif action == "unfeature":
+        cursor.execute(f"UPDATE photos SET is_featured = 0 WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)", photo_ids + [slug])
+    elif action == "delete":
+        cursor.execute(f"UPDATE photos SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE id IN ({placeholders}) AND event_id = (SELECT id FROM events WHERE slug = ?)", photo_ids + [slug])
+    else:
+        conn.close()
+        raise HTTPException(400, "Invalid action.")
+        
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "count": len(photo_ids)}
+
+@app.post("/api/admin/events/{slug}/albums/{album_id}/set-cover")
+def admin_set_album_cover(slug: str, album_id: int, payload: dict, token: str = Depends(get_auth_token)):
+    rel_path = payload.get("rel_path", "").strip()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE albums SET cover_image_path = ?
+        WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
+    """, (rel_path, album_id, slug))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
 
 @app.post("/api/admin/events/{slug}/upload")
 async def admin_upload_to_event(

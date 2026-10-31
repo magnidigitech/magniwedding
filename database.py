@@ -156,3 +156,4 @@ if __name__ == "__main__":
     init_db()
     migrate_existing_data()
     print("Database initialized and existing data migrated successfully.")
+

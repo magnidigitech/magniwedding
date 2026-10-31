@@ -37,7 +37,7 @@
     padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.88rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600;
   }
   .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-  .container { max-width: 1060px; width: 100%; margin: 1.5rem auto 3rem; padding: 0 1rem; }
+  .container { max-width: 1080px; width: 100%; margin: 1.5rem auto 3rem; padding: 0 1rem; }
 
   /* Login */
   .auth-wrap { min-height: calc(85vh - 70px); display: flex; align-items: center; justify-content: center; }
@@ -78,7 +78,7 @@
   .stat-val { font-size: 2rem; font-weight: 700; margin: 0.2rem 0; line-height: 1.1; }
   .stat-sub { font-size: 0.82rem; color: var(--muted); }
 
-  /* Event Grid Cards */
+  /* Cards & Lists */
   .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1.2rem; }
   .event-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem;
@@ -90,7 +90,6 @@
   .event-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.2rem; }
   .event-slug { font-size: 0.82rem; color: var(--accent); font-family: monospace; }
   .event-meta { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0; }
-  .event-badges { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
   .badge {
     padding: 0.18rem 0.55rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700;
   }
@@ -106,10 +105,10 @@
   .breadcrumb:hover { color: var(--accent); }
 
   /* Tabs */
-  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; overflow-x: auto; }
   .tab-btn {
     background: transparent; border: 0; color: var(--muted); font-size: 0.92rem; font-weight: 600;
-    padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer;
+    padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; white-space: nowrap;
   }
   .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
 
@@ -118,7 +117,7 @@
   }
   .card-head {
     padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--card-header);
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;
   }
   .card-head h2 { font-size: 1.05rem; font-weight: 700; }
   .card-body { padding: 1.25rem; }
@@ -151,8 +150,26 @@
   .drop-zone:hover { border-color: var(--accent); }
   .drop-zone input { display: none; }
 
-  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.8rem; }
-  .photo-grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; background: var(--line); }
+  /* Photo Management Grid & Toolbar */
+  .photo-toolbar {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;
+    padding: 0.8rem 1rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 1rem;
+  }
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; }
+  .photo-item {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    position: relative; transition: border-color 0.15s;
+  }
+  .photo-item.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .photo-item img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; background: var(--line); }
+  .photo-meta { padding: 0.55rem 0.75rem; font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .photo-check {
+    position: absolute; top: 0.6rem; left: 0.6rem; width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer;
+  }
+  .photo-tag {
+    position: absolute; top: 0.6rem; right: 0.6rem; font-size: 0.72rem; padding: 0.15rem 0.45rem;
+    border-radius: 4px; font-weight: 700; background: rgba(0,0,0,0.65); color: #fff;
+  }
 
   [hidden] { display: none !important; }
 </style>
@@ -245,6 +262,7 @@
   <!-- Workspace Tabs -->
   <div class="tabs">
     <button class="tab-btn active" id="tabAlbumsBtn">Albums & Folders</button>
+    <button class="tab-btn" id="tabPhotosBtn">Photo Library & Bulk Actions</button>
     <button class="tab-btn" id="tabUploadBtn">Upload Photos</button>
     <button class="tab-btn" id="tabGdriveBtn">Google Drive Import</button>
     <button class="tab-btn" id="tabLogsBtn">Face Indexer Logs</button>
@@ -252,10 +270,37 @@
 
   <!-- Tab 1: Albums -->
   <div id="tabAlbumsContent">
-    <div class="events-grid" id="albumsGrid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));"></div>
+    <div class="events-grid" id="albumsGrid" style="grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));"></div>
   </div>
 
-  <!-- Tab 2: Upload -->
+  <!-- Tab 2: Photos Library & Bulk Actions (Phase 2) -->
+  <div id="tabPhotosContent" hidden>
+    <div class="photo-toolbar">
+      <div style="display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
+        <label style="font-size:0.85rem;font-weight:600;">Filter by Album:</label>
+        <select id="filterAlbumSelect" style="width:auto;min-width:180px;padding:0.4rem 0.6rem;font-size:0.85rem;">
+          <option value="">All Albums</option>
+        </select>
+        <button id="selectAllBtn" class="btn-outline" style="padding:0.35rem 0.7rem;font-size:0.82rem;">Select All</button>
+        <button id="clearSelectBtn" class="btn-outline" style="padding:0.35rem 0.7rem;font-size:0.82rem;" hidden>Clear Selection</button>
+        <span id="selectedCountBadge" style="font-size:0.85rem;font-weight:700;color:var(--accent);" hidden>0 selected</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;" id="bulkActionGroup" hidden>
+        <select id="bulkTargetAlbumSelect" style="width:auto;padding:0.4rem 0.6rem;font-size:0.85rem;"></select>
+        <button id="bulkMoveBtn" class="btn-primary" style="padding:0.4rem 0.8rem;font-size:0.82rem;">Move to Album</button>
+        <button id="bulkFeatureBtn" class="btn-outline" style="padding:0.4rem 0.8rem;font-size:0.82rem;">⭐ Feature</button>
+        <button id="bulkHideBtn" class="btn-outline" style="padding:0.4rem 0.8rem;font-size:0.82rem;">👁️ Hide</button>
+        <button id="bulkDeleteBtn" class="btn-outline" style="padding:0.4rem 0.8rem;font-size:0.82rem;color:var(--err);border-color:var(--err);">🗑️ Delete</button>
+      </div>
+    </div>
+
+    <div class="photo-grid" id="photoLibraryGrid">
+      <div style="color:var(--muted);grid-column:1/-1;">Loading photos...</div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Upload -->
   <div id="tabUploadContent" hidden>
     <div class="card">
       <div class="card-head">
@@ -263,7 +308,7 @@
       </div>
       <div class="card-body">
         <div class="field">
-          <label for="uploadAlbumSelect">Select Album</label>
+          <label for="uploadAlbumSelect">Select Destination Album</label>
           <select id="uploadAlbumSelect"></select>
         </div>
         <div class="drop-zone" id="wsDropZone">
@@ -277,7 +322,7 @@
     </div>
   </div>
 
-  <!-- Tab 3: Google Drive -->
+  <!-- Tab 4: Google Drive -->
   <div id="tabGdriveContent" hidden>
     <div class="card">
       <div class="card-head">
@@ -298,7 +343,7 @@
     </div>
   </div>
 
-  <!-- Tab 4: Logs -->
+  <!-- Tab 5: Logs -->
   <div id="tabLogsContent" hidden>
     <div class="card">
       <div class="card-head">
@@ -373,6 +418,9 @@
 const $ = id => document.getElementById(id);
 let authToken = localStorage.getItem('admin_token') || '';
 let currentEventSlug = null;
+let currentEventAlbums = [];
+let selectedPhotoIds = new Set();
+let loadedPhotos = [];
 
 function authHeaders(extra = {}) {
   return { 'X-Admin-Token': authToken, ...extra };
@@ -477,14 +525,16 @@ function renderOverview(data) {
   }
 }
 
-// Open Event Workspace
+// Open Workspace
 window.openWorkspace = async function(slug) {
   currentEventSlug = slug;
   try {
     const res = await fetch(`/api/admin/events/${slug}`, { headers: authHeaders() });
     if (!res.ok) throw new Error('Failed to load event');
     const data = await res.json();
+    currentEventAlbums = data.albums || [];
     renderWorkspace(data);
+    loadEventPhotos();
   } catch (err) {
     alert(err.message);
   }
@@ -503,26 +553,209 @@ function renderWorkspace(data) {
   // Render albums
   const grid = $('albumsGrid');
   grid.replaceChildren();
+
   const select1 = $('uploadAlbumSelect');
   const select2 = $('gdriveAlbumSelect');
+  const select3 = $('filterAlbumSelect');
+  const select4 = $('bulkTargetAlbumSelect');
+
   select1.replaceChildren();
   select2.replaceChildren();
+  select3.innerHTML = '<option value="">All Albums</option>';
+  select4.innerHTML = '<option value="">Choose Destination Album</option>';
 
   for (const a of data.albums) {
     const div = document.createElement('div');
     div.className = 'event-card';
+    const coverUrl = a.cover_image_path ? `/thumb/${a.cover_image_path}` : 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=400&q=80';
     div.innerHTML = `
-      <div style="font-size:1.1rem;font-weight:700;">📁 ${a.name}</div>
-      <div style="font-size:0.82rem;color:var(--muted);">${a.photo_count || 0} photographs</div>
+      <img src="${coverUrl}" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--line);" loading="lazy">
+      <div>
+        <div style="font-size:1.1rem;font-weight:700;">📁 ${a.name}</div>
+        <div style="font-size:0.82rem;color:var(--muted);">${a.photo_count || 0} photographs</div>
+      </div>
+      <div style="display:flex;gap:0.4rem;">
+        <button class="btn-outline" style="flex:1;font-size:0.82rem;" onclick="filterByAlbum('${a.id}')">Browse Photos →</button>
+        <button class="btn-outline" style="font-size:0.82rem;color:var(--err);" onclick="deleteAlbum(${a.id}, '${a.name}')">🗑️</button>
+      </div>
     `;
     grid.append(div);
 
-    const opt1 = new Option(a.name, a.slug);
-    const opt2 = new Option(a.name, a.slug);
-    select1.add(opt1);
-    select2.add(opt2);
+    select1.add(new Option(a.name, a.slug));
+    select2.add(new Option(a.name, a.slug));
+    select3.add(new Option(a.name, a.id));
+    select4.add(new Option(a.name, a.id));
   }
 }
+
+// Phase 2: Photo Library & Bulk Actions
+async function loadEventPhotos(albumId = '') {
+  selectedPhotoIds.clear();
+  updateSelectionUI();
+  const url = albumId ? `/api/admin/events/${currentEventSlug}/photos?album_id=${albumId}` : `/api/admin/events/${currentEventSlug}/photos`;
+  try {
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) return;
+    const j = await res.json();
+    loadedPhotos = j.photos || [];
+    renderPhotoLibrary(loadedPhotos);
+  } catch (e) {}
+}
+
+function renderPhotoLibrary(photos) {
+  const grid = $('photoLibraryGrid');
+  grid.replaceChildren();
+
+  if (photos.length === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No photos found in this album.</div>';
+    return;
+  }
+
+  for (const p of photos) {
+    const div = document.createElement('div');
+    div.className = 'photo-item' + (selectedPhotoIds.has(p.id) ? ' selected' : '');
+    div.id = `photo-item-${p.id}`;
+    const enc = p.rel_path.split('/').map(encodeURIComponent).join('/');
+
+    div.innerHTML = `
+      <input type="checkbox" class="photo-check" data-id="${p.id}" ${selectedPhotoIds.has(p.id) ? 'checked' : ''}>
+      ${p.is_featured ? '<span class="photo-tag" style="background:#f59e0b;">⭐ Featured</span>' : ''}
+      ${p.is_hidden ? '<span class="photo-tag" style="background:#ef4444;">Hidden</span>' : ''}
+      <img src="/thumb/${enc}" alt="${p.filename}" loading="lazy">
+      <div class="photo-meta">
+        <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.filename}</span>
+        <span style="color:var(--muted);font-size:0.75rem;">📁 ${p.album_name || 'Unassigned'} • ${(p.file_size_bytes / 1024 / 1024).toFixed(1)} MB</span>
+        <div style="display:flex;gap:0.3rem;margin-top:0.3rem;">
+          <a href="/photo/${enc}" target="_blank" style="font-size:0.75rem;color:var(--accent);text-decoration:none;" download>Download</a>
+          <button style="background:transparent;border:0;color:var(--muted);font-size:0.75rem;cursor:pointer;" onclick="setCover('${p.rel_path}')">Set Cover</button>
+        </div>
+      </div>
+    `;
+
+    div.querySelector('.photo-check').addEventListener('change', (e) => {
+      e.stopPropagation();
+      toggleSelectPhoto(p.id);
+    });
+    grid.append(div);
+  }
+}
+
+function toggleSelectPhoto(id) {
+  if (selectedPhotoIds.has(id)) selectedPhotoIds.delete(id);
+  else selectedPhotoIds.add(id);
+
+  const el = $(`photo-item-${id}`);
+  if (el) el.classList.toggle('selected', selectedPhotoIds.has(id));
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const count = selectedPhotoIds.size;
+  $('selectedCountBadge').textContent = `${count} selected`;
+  $('selectedCountBadge').hidden = count === 0;
+  $('clearSelectBtn').hidden = count === 0;
+  $('bulkActionGroup').hidden = count === 0;
+}
+
+$('selectAllBtn').addEventListener('click', () => {
+  loadedPhotos.forEach(p => selectedPhotoIds.add(p.id));
+  document.querySelectorAll('.photo-check').forEach(cb => cb.checked = true);
+  document.querySelectorAll('.photo-item').forEach(el => el.classList.add('selected'));
+  updateSelectionUI();
+});
+
+$('clearSelectBtn').addEventListener('click', () => {
+  selectedPhotoIds.clear();
+  document.querySelectorAll('.photo-check').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.photo-item').forEach(el => el.classList.remove('selected'));
+  updateSelectionUI();
+});
+
+$('filterAlbumSelect').addEventListener('change', (e) => {
+  loadEventPhotos(e.target.value);
+});
+
+window.filterByAlbum = function(albumId) {
+  wsTabs.forEach(o => { $(o.btn).classList.remove('active'); $(o.content).hidden = true; });
+  $('tabPhotosBtn').classList.add('active');
+  $('tabPhotosContent').hidden = false;
+  $('filterAlbumSelect').value = albumId;
+  loadEventPhotos(albumId);
+};
+
+// Bulk Actions
+async function performBulkAction(action) {
+  if (selectedPhotoIds.size === 0) return;
+  const photo_ids = Array.from(selectedPhotoIds);
+
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/photos/bulk-action`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ photo_ids, action })
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Action failed');
+    loadEventPhotos($('filterAlbumSelect').value);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+$('bulkFeatureBtn').addEventListener('click', () => performBulkAction('feature'));
+$('bulkHideBtn').addEventListener('click', () => performBulkAction('hide'));
+$('bulkDeleteBtn').addEventListener('click', () => {
+  if (confirm(`Move ${selectedPhotoIds.size} photo(s) to Trash?`)) performBulkAction('delete');
+});
+
+// Bulk Move
+$('bulkMoveBtn').addEventListener('click', async () => {
+  const target_album_id = $('bulkTargetAlbumSelect').value;
+  if (!target_album_id) return alert('Please select a target album to move to.');
+  if (selectedPhotoIds.size === 0) return;
+
+  const photo_ids = Array.from(selectedPhotoIds);
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/photos/bulk-move`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ photo_ids, target_album_id: parseInt(target_album_id) })
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Move failed');
+    alert(`Moved ${j.moved_count} photos successfully.`);
+    openWorkspace(currentEventSlug);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// Set Cover
+window.setCover = async function(rel_path) {
+  const albumId = $('filterAlbumSelect').value || currentEventAlbums[0]?.id;
+  if (!albumId) return alert('Select an album to set cover.');
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/albums/${albumId}/set-cover`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ rel_path })
+    });
+    if (res.ok) alert('Album cover updated!');
+    openWorkspace(currentEventSlug);
+  } catch (e) {}
+};
+
+// Delete Album
+window.deleteAlbum = async function(albumId, albumName) {
+  if (!confirm(`Delete album '${albumName}'? (Photos inside will be kept and unassigned)`)) return;
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/albums/${albumId}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (res.ok) openWorkspace(currentEventSlug);
+  } catch (e) {}
+};
 
 $('backToEventsBtn').addEventListener('click', () => {
   $('workspaceView').hidden = true;
@@ -532,6 +765,7 @@ $('backToEventsBtn').addEventListener('click', () => {
 // Workspace Tabs
 const wsTabs = [
   { btn: 'tabAlbumsBtn', content: 'tabAlbumsContent' },
+  { btn: 'tabPhotosBtn', content: 'tabPhotosContent' },
   { btn: 'tabUploadBtn', content: 'tabUploadContent' },
   { btn: 'tabGdriveBtn', content: 'tabGdriveContent' },
   { btn: 'tabLogsBtn', content: 'tabLogsContent' }
@@ -545,6 +779,7 @@ wsTabs.forEach(t => {
     });
     $(t.btn).classList.add('active');
     $(t.content).hidden = false;
+    if (t.btn === 'tabPhotosBtn') loadEventPhotos($('filterAlbumSelect').value);
     if (t.btn === 'tabLogsBtn') fetchLogs();
   });
 });
