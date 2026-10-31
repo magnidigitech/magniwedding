@@ -156,6 +156,7 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
     append_log(f"--- Starting Google Drive Download into {dest_dir} ---")
     dest_dir.mkdir(parents=True, exist_ok=True)
     map_file = DATA / "drive_map.json"
+    current_fid = None
     try:
         proc = subprocess.Popen(
             [sys.executable, "-m", "gdown", "--folder", url, "-O", str(dest_dir)],
@@ -171,6 +172,16 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
             if m:
                 fid, fname = m.group(1), m.group(2)
                 drive_map[f"{rel_prefix}/{fname}"] = fid
+                drive_map[fname] = fid
+            m_from = re.search(r'From:\s*https://drive\.google\.com/uc\?id=([a-zA-Z0-9_-]+)', txt)
+            if m_from:
+                current_fid = m_from.group(1)
+            m_to = re.search(r'To:\s*.*[/\\]([a-zA-Z0-9_.-]+)', txt)
+            if m_to and current_fid:
+                fname = m_to.group(1)
+                drive_map[f"{rel_prefix}/{fname}"] = current_fid
+                drive_map[fname] = current_fid
+                current_fid = None
         proc.wait()
         append_log(f"--- Google Drive Download Finished (exit code {proc.returncode}) ---")
         
@@ -186,22 +197,44 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
                 optimize_photo_inplace(img_path)
         append_log("Optimization complete.")
 
-        # Update database with new photos
+        # Update database with new photos and proper album assignment
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM events WHERE slug = ?", (event_slug,))
         erow = cursor.fetchone()
         if erow:
             eid = erow["id"]
+            album_name = dest_dir.name
+            album_slug = re.sub(r"[^a-zA-Z0-9_-]", "-", album_name.lower()).strip("-")
+            cursor.execute("SELECT id FROM albums WHERE event_id = ? AND (slug = ? OR name = ?)", (eid, album_slug, album_name.replace("-", " ").title()))
+            arow = cursor.fetchone()
+            if not arow:
+                cursor.execute("""
+                    INSERT INTO albums (event_id, slug, name, sort_order)
+                    VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM albums WHERE event_id = ?))
+                """, (eid, album_slug, album_name.replace("-", " ").title(), eid))
+                album_id = cursor.lastrowid
+            else:
+                album_id = arow["id"]
+
             for img_path in dest_dir.rglob("*"):
-                if img_path.is_file() and img_path.suffix.lower() in valid_exts:
+                if img_path.is_file() and img_path.suffix.lower() in valid_exts and not img_path.name.startswith("."):
                     rel = str(img_path.relative_to(PHOTOS))
                     fsize = img_path.stat().st_size
-                    did = drive_map.get(rel)
+                    did = drive_map.get(rel) or drive_map.get(img_path.name)
+                    if not did:
+                        for k, v in drive_map.items():
+                            if k.endswith(img_path.name):
+                                did = v
+                                break
                     cursor.execute("""
-                        INSERT OR IGNORE INTO photos (event_id, filename, rel_path, drive_file_id, file_size_bytes)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (eid, img_path.name, rel, did, fsize))
+                        INSERT INTO photos (event_id, album_id, filename, rel_path, drive_file_id, file_size_bytes)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(event_id, rel_path) DO UPDATE SET
+                            album_id = excluded.album_id,
+                            drive_file_id = COALESCE(excluded.drive_file_id, photos.drive_file_id),
+                            file_size_bytes = excluded.file_size_bytes
+                    """, (eid, album_id, img_path.name, rel, did, fsize))
             conn.commit()
         conn.close()
 

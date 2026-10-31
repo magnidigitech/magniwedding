@@ -993,6 +993,13 @@
               <label>Google Drive Folder URL or Folder ID</label>
               <input type="text" id="gdriveUrlInput" placeholder="https://drive.google.com/drive/folders/13zRIMygMP4X4maueJggz6JwxOGUhRJ4e">
             </div>
+            <div class="field">
+              <label>Target Subfolder for Imported Photos</label>
+              <div style="display:flex;gap:0.75rem;align-items:center;">
+                <select id="gdriveTargetAlbumSelect" style="flex:1;"></select>
+                <input type="text" id="gdriveCustomSlugInput" placeholder="or enter folder slug (e.g. vignehsh-birthday)" style="flex:1;">
+              </div>
+            </div>
             <div style="display:flex;gap:0.75rem;align-items:center;">
               <button class="btn-primary" id="startGdriveSyncBtn">
                 <svg class="icon" viewBox="0 0 24 24"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1841,18 +1848,32 @@ function setupUploadTab() {
 
   const activeAlbum = allAlbums.find(a => a.slug === activeUploadAlbumSlug) || allAlbums[0];
   $('activeUploadFolderLabel').textContent = `Destination: ${activeAlbum.name} (slug: ${activeAlbum.slug})`;
+
+  // Also populate Google Drive target selector
+  const gdSel = $('gdriveTargetAlbumSelect');
+  if (gdSel) {
+    gdSel.replaceChildren();
+    for (const a of allAlbums) {
+      const o = document.createElement('option');
+      o.value = a.slug;
+      o.textContent = a.name;
+      if (a.slug === activeUploadAlbumSlug) o.selected = true;
+      gdSel.append(o);
+    }
+  }
 }
 
 $('startGdriveSyncBtn').addEventListener('click', async () => {
   const url = $('gdriveUrlInput').value.trim();
   if (!url) { alert('Please enter a Google Drive folder URL'); return; }
+  const albumSlug = $('gdriveCustomSlugInput').value.trim() || $('gdriveTargetAlbumSelect').value || 'gdrive_photos';
   $('startGdriveSyncBtn').disabled = true;
-  $('gdriveStatusText').textContent = 'Starting background sync...';
+  $('gdriveStatusText').textContent = `Starting background sync into '${albumSlug}'...`;
   try {
     const res = await fetch(`/api/admin/events/${activeSlug}/gdrive`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, album_slug: 'gdrive_photos' })
+      body: JSON.stringify({ url, album_slug: albumSlug })
     });
     if (res.ok) {
       $('gdriveStatusText').textContent = 'Sync started in background! Check Activity Logs.';
