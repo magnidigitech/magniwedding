@@ -214,16 +214,28 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
     cursor.execute("SELECT id, name FROM person_profiles WHERE event_id = ?", (event_id,))
     existing_profiles = {r["name"]: r["id"] for r in cursor.fetchall()}
     
-    # Map photos rel_path to photo id
-    cursor.execute("SELECT id, rel_path FROM photos WHERE event_id = ?", (event_id,))
-    photo_map = {r["rel_path"]: r["id"] for r in cursor.fetchall()}
+    # Map photos rel_path, filename and relative subpath to photo id
+    cursor.execute("SELECT id, rel_path, filename FROM photos WHERE event_id = ?", (event_id,))
+    photo_map = {}
+    for r in cursor.fetchall():
+        photo_map[r["rel_path"]] = r["id"]
+        photo_map[r["filename"]] = r["id"]
+        parts = r["rel_path"].split("/")
+        if len(parts) >= 2:
+            photo_map["/".join(parts[1:])] = r["id"]
+            photo_map["/".join(parts[2:])] = r["id"]
     
     # Clear old face_detections for this event to avoid duplicates
     cursor.execute("DELETE FROM face_detections WHERE event_id = ?", (event_id,))
     
     people_created = 0
     for idx, cl in enumerate(clusters):
-        sample_rel = names[cl[0]]
+        sample_raw = names[cl[0]]
+        if event_slug not in {"default", "wedding"} and not sample_raw.startswith("events/"):
+            sample_rel = f"events/{event_slug}/{sample_raw}"
+        else:
+            sample_rel = sample_raw
+            
         # Meaningful naming: Top clusters are likely Couple / VIPs
         default_name = f"Guest #{idx + 1}"
         if idx == 0:
@@ -240,6 +252,7 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
         
         if existing:
             person_id = existing["id"]
+            cursor.execute("UPDATE person_profiles SET avatar_thumb_path = ? WHERE id = ?", (sample_rel, person_id))
         else:
             cursor.execute("""
                 INSERT INTO person_profiles (event_id, name, avatar_thumb_path)
@@ -251,7 +264,8 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
         # Link face detections
         for face_idx in cl:
             photo_rel = names[face_idx]
-            p_id = photo_map.get(photo_rel)
+            fname = Path(photo_rel).name
+            p_id = photo_map.get(photo_rel) or photo_map.get(fname)
             if p_id:
                 cursor.execute("""
                     INSERT INTO face_detections (event_id, photo_id, person_id, embedding_offset, confidence)
