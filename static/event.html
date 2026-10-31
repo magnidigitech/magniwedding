@@ -202,7 +202,7 @@
     transform: translateY(-1px);
   }
 
-  /* People in this celebration (Zoomed-in Face Avatars) */
+  /* People in this celebration (Zoomed-In Face Avatars) */
   .people-strip {
     display: flex;
     gap: 1.4rem;
@@ -304,9 +304,10 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.2rem 0.5rem;
+    padding: 0.25rem 0.6rem;
     border-radius: 6px;
     background: #eef6f3;
+    transition: background 0.15s;
   }
   .photo-btn:hover {
     background: #dbeef7;
@@ -337,25 +338,73 @@
 
   /* High-Resolution Photo Lightbox */
   .lightbox-backdrop {
-    position: fixed; inset: 0; background: rgba(5, 12, 10, 0.92);
-    backdrop-filter: blur(10px); display: flex; flex-direction: column;
-    align-items: center; justify-content: space-between; z-index: 2000; padding: 1.5rem 1rem;
+    position: fixed; inset: 0; background: rgba(5, 12, 10, 0.94);
+    backdrop-filter: blur(12px); display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between; z-index: 2000; padding: 1.25rem 1rem;
+    user-select: none;
   }
   .lightbox-topbar {
     width: 100%; max-width: 1100px; display: flex; justify-content: space-between;
-    align-items: center; color: #ffffff;
+    align-items: center; color: #ffffff; z-index: 2010;
   }
   .lightbox-img-wrap {
     flex: 1; display: flex; align-items: center; justify-content: center;
-    max-width: 1100px; width: 100%; overflow: hidden; padding: 1rem 0;
+    max-width: 1100px; width: 100%; overflow: hidden; position: relative;
+    touch-action: pan-y pinch-zoom;
   }
   .lightbox-img {
     max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 10px;
-    box-shadow: 0 15px 45px rgba(0,0,0,0.6);
+    box-shadow: 0 15px 45px rgba(0,0,0,0.6); transition: opacity 0.25s ease;
   }
   .lightbox-bottombar {
     width: 100%; max-width: 1100px; display: flex; justify-content: center;
-    gap: 1rem; align-items: center;
+    gap: 1rem; align-items: center; z-index: 2010;
+  }
+
+  /* Navigation Arrows */
+  .lightbox-nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.25); color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; z-index: 2010;
+  }
+  .lightbox-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.3); transform: translateY(-50%) scale(1.06);
+  }
+  .lightbox-nav-btn.prev { left: 1rem; }
+  .lightbox-nav-btn.next { right: 1rem; }
+  @media (max-width: 640px) {
+    .lightbox-nav-btn { width: 42px; height: 42px; }
+    .lightbox-nav-btn.prev { left: 0.4rem; }
+    .lightbox-nav-btn.next { right: 0.4rem; }
+  }
+
+  /* MagniDigitech Spinner Loader (Matches Uploaded Reference) */
+  .md-loader {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 68px; height: 68px; display: flex; align-items: center; justify-content: center;
+    z-index: 2005; pointer-events: none;
+  }
+  .md-loader-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 3.5px solid rgba(255, 80, 0, 0.15);
+    border-top: 3.5px solid #ff4400; border-right: 3.5px solid #ff9900;
+    animation: mdSpin 0.85s linear infinite;
+    box-shadow: 0 0 16px rgba(255, 68, 0, 0.2);
+  }
+  @keyframes mdSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .md-loader-badge {
+    width: 50px; height: 50px; border-radius: 50%; background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+  }
+  .md-loader-badge svg {
+    width: 28px; height: 28px; display: block;
   }
 
   [hidden] { display: none !important; }
@@ -424,15 +473,46 @@
 
 </div>
 
-<!-- High-Resolution Lightbox Modal -->
+<!-- High-Resolution Lightbox Modal with Arrows, Swipe & MD Spinner Loader -->
 <div id="photoLightboxModal" class="lightbox-backdrop" hidden>
   <div class="lightbox-topbar">
-    <span id="lightboxFilename" style="font-family:monospace;font-size:0.95rem;font-weight:600;">Photo</span>
-    <button id="closeLightboxBtn" style="background:transparent;border:0;color:#fff;font-size:2rem;cursor:pointer;line-height:1;">&times;</button>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <span id="lightboxCounter" style="background:rgba(255,255,255,0.18);padding:0.2rem 0.55rem;border-radius:99px;font-size:0.75rem;font-weight:700;">1 / 1</span>
+      <span id="lightboxFilename" style="font-family:monospace;font-size:0.92rem;font-weight:600;">Photo</span>
+    </div>
+    <button id="closeLightboxBtn" style="background:transparent;border:0;color:#fff;font-size:2rem;cursor:pointer;line-height:1;padding:0.2rem 0.5rem;" aria-label="Close Lightbox">&times;</button>
   </div>
-  <div class="lightbox-img-wrap">
+
+  <div class="lightbox-img-wrap" id="lightboxImgWrap">
+    <!-- Navigation Left Arrow -->
+    <button id="lightboxPrevBtn" class="lightbox-nav-btn prev" aria-label="Previous Photo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
+    <!-- Center Image -->
     <img id="lightboxImg" class="lightbox-img" alt="High Resolution Photo">
+
+    <!-- MagniDigitech Spinner Loader with logo.svg -->
+    <div id="lightboxLoader" class="md-loader">
+      <div class="md-loader-ring"></div>
+      <div class="md-loader-badge">
+        <svg viewBox="0 0 5000 5000">
+          <path fill="#C2302A" d="M1625.8 1708.29l-348.09 -439.43c-51.09,19.05 -55.03,31.58 -87.96,75.26 -87.28,115.76 -107.52,126.83 -199.95,279.87 -635,1051.33 72.94,2560.37 1416.73,2621.4l-1.21 -403.49c-927.78,-82.98 -1464.94,-984.65 -1159.15,-1820.44l40.93 -71.81c84.81,78.31 273.58,376.63 358.86,416.47l350.7 -437.47 0.39 1468.07 404.31 2.89 5.27 -2638.01 -53.91 52.35c-19.53,23.3 -28,36.97 -49.36,63.31 -97.62,120.39 -623.23,793.63 -677.56,831.04z"/>
+          <path fill="#FFCC29" d="M2595.15 3400.22l406.78 -1.87 2.76 -2140.88c246,74.39 498.64,318.8 632.93,529.16 524.17,821.1 -3.74,1977.69 -1040.01,2054.57l-2.95 404.02c905.92,-33.73 1650.61,-811.43 1651.08,-1745.32 0.47,-941.41 -742.17,-1699.63 -1650.23,-1745.3l-0.35 2645.61z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Navigation Right Arrow -->
+    <button id="lightboxNextBtn" class="lightbox-nav-btn next" aria-label="Next Photo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
   </div>
+
   <div class="lightbox-bottombar">
     <a id="lightboxDownloadBtn" class="btn-find-photos" href="#" target="_blank" download style="background:#ffffff;color:#16241f;font-weight:700;">
       ⬇ Download Original
@@ -473,6 +553,8 @@
 const $ = id => document.getElementById(id);
 const slug = window.location.pathname.replace(/^\/|\/$/g, '') || 'rahul-priya';
 let eventData = null;
+let currentPhotosList = [];
+let currentPhotoIndex = 0;
 
 const FALLBACK_COVERS = {
   haldi: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80",
@@ -586,13 +668,15 @@ async function loadPersonPhotos(personId, personName) {
 }
 
 function renderPhotos(photosList) {
+  currentPhotosList = photosList || [];
   const grid = $('photosGrid');
   grid.replaceChildren();
-  if (photosList.length === 0) {
+  if (currentPhotosList.length === 0) {
     grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No photos found in this view.</div>';
     return;
   }
-  for (const item of photosList) {
+  for (let idx = 0; idx < currentPhotosList.length; idx++) {
+    const item = currentPhotosList[idx];
     const p = typeof item === 'string' ? item : item.rel_path;
     const enc = p.split('/').map(encodeURIComponent).join('/');
     const card = document.createElement('div');
@@ -607,33 +691,131 @@ function renderPhotos(photosList) {
       </div>
     `;
     // Clicking the image opens high resolution view from Google Drive
-    card.querySelector('.photo-img').addEventListener('click', () => openPhotoLightbox(item));
+    card.querySelector('.photo-img').addEventListener('click', () => openPhotoLightbox(idx));
     grid.append(card);
   }
 }
 
-// High-Resolution Lightbox Viewer
-function openPhotoLightbox(item) {
+// Helper to get high-resolution URL from item
+function getHighResUrl(item) {
+  if (!item) return '';
   const p = typeof item === 'string' ? item : item.rel_path;
   const driveId = typeof item === 'object' ? item.drive_file_id : null;
   const enc = p.split('/').map(encodeURIComponent).join('/');
-  const filename = p.split('/').pop();
-
-  // If Google Drive file id exists, load the 2560px ultra-crisp Google Drive rendered view
-  const highResUrl = driveId 
+  return driveId 
     ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w2560` 
     : `/photo/${enc}`;
-
-  $('lightboxImg').src = highResUrl;
-  $('lightboxFilename').textContent = filename;
-  $('lightboxDownloadBtn').href = `/photo/${enc}`;
-  $('photoLightboxModal').hidden = false;
 }
 
-$('closeLightboxBtn').addEventListener('click', () => {
+// High-Resolution Lightbox Viewer
+function openPhotoLightbox(index) {
+  if (currentPhotosList.length === 0) return;
+  if (index < 0) index = currentPhotosList.length - 1;
+  if (index >= currentPhotosList.length) index = 0;
+  currentPhotoIndex = index;
+
+  const item = currentPhotosList[index];
+  const p = typeof item === 'string' ? item : item.rel_path;
+  const enc = p.split('/').map(encodeURIComponent).join('/');
+  const filename = p.split('/').pop();
+
+  $('lightboxCounter').textContent = `${index + 1} / ${currentPhotosList.length}`;
+  $('lightboxFilename').textContent = filename;
+  $('lightboxDownloadBtn').href = `/photo/${enc}`;
+
+  // Show MD Loader and hide image until loaded
+  $('lightboxLoader').hidden = false;
+  $('lightboxImg').style.opacity = '0';
+
+  const highResUrl = getHighResUrl(item);
+
+  const img = $('lightboxImg');
+  img.onload = () => {
+    $('lightboxLoader').hidden = true;
+    img.style.opacity = '1';
+  };
+  img.onerror = () => {
+    // Fallback to local /thumb/ or /photo/ if Google Drive thumbnail has issue
+    img.src = `/photo/${enc}`;
+    $('lightboxLoader').hidden = true;
+    img.style.opacity = '1';
+  };
+  img.src = highResUrl;
+
+  $('photoLightboxModal').hidden = false;
+
+  // Preload adjacent images
+  const nextIdx = (index + 1) % currentPhotosList.length;
+  const prevIdx = (index - 1 + currentPhotosList.length) % currentPhotosList.length;
+  new Image().src = getHighResUrl(currentPhotosList[nextIdx]);
+  new Image().src = getHighResUrl(currentPhotosList[prevIdx]);
+}
+
+function navigateLightbox(direction) {
+  openPhotoLightbox(currentPhotoIndex + direction);
+}
+
+function closeLightbox() {
   $('photoLightboxModal').hidden = true;
   $('lightboxImg').src = '';
+  $('lightboxImg').style.opacity = '0';
+  $('lightboxLoader').hidden = true;
+}
+
+// Lightbox Controls
+$('lightboxPrevBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  navigateLightbox(-1);
 });
+
+$('lightboxNextBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  navigateLightbox(1);
+});
+
+$('closeLightboxBtn').addEventListener('click', closeLightbox);
+
+// Keyboard Navigation
+document.addEventListener('keydown', e => {
+  if (!$('photoLightboxModal').hidden) {
+    if (e.key === 'ArrowRight') navigateLightbox(1);
+    if (e.key === 'ArrowLeft') navigateLightbox(-1);
+    if (e.key === 'Escape') closeLightbox();
+  }
+});
+
+// Touch Swipe Features for Mobile & Tablets
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+const lightboxWrap = $('lightboxImgWrap');
+lightboxWrap.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+lightboxWrap.addEventListener('touchend', e => {
+  touchEndX = e.changedTouches[0].screenX;
+  touchEndY = e.changedTouches[0].screenY;
+  handleSwipe();
+}, { passive: true });
+
+function handleSwipe() {
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+  // Threshold 45px and predominantly horizontal
+  if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (diffX < 0) {
+      // Swipe Left -> Next
+      navigateLightbox(1);
+    } else {
+      // Swipe Right -> Prev
+      navigateLightbox(-1);
+    }
+  }
+}
 
 $('closePhotosBtn').addEventListener('click', () => {
   $('photosSection').hidden = true;
