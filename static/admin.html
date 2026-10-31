@@ -1346,7 +1346,7 @@ async function loadPhotos(filterAlbumId = '') {
           <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.filename}</div>
           <div style="color:var(--muted);">${p.album_name || 'Unassigned'}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.2rem;">
-            <a href="/photo/${enc}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600;">RAW ↗</a>
+            <a href="/photo/${enc}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600;">Download ↗</a>
             <button class="btn-outline" style="padding:0.15rem 0.45rem;font-size:0.72rem;" onclick="setAsCover(${p.album_id}, '${p.rel_path}')">Set Cover</button>
           </div>
         </div>
@@ -1519,7 +1519,7 @@ async function viewPersonPhotos(personId) {
       <div class="photo-meta">
         <div style="font-weight:600;">${p.filename}</div>
         <div style="color:var(--muted);">${p.album_name || 'Event Photo'}</div>
-        <a href="/photo/${enc}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600;margin-top:0.2rem;">RAW (5TB Drive) ↗</a>
+        <a href="/photo/${enc}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600;margin-top:0.2rem;">Download ↗</a>
       </div>
     `;
     grid.append(item);

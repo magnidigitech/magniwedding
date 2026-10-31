@@ -260,6 +260,11 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
                 
     conn.commit()
     conn.close()
+    try:
+        from crop_faces import crop_people_faces
+        crop_people_faces()
+    except Exception as e:
+        print(f"Face crop note: {e}")
     return {"status": "ok", "people_count": len(clusters), "created": people_created}
 
 def list_people_for_event(event_slug: str):

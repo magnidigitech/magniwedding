@@ -243,7 +243,16 @@ def perform_face_search(selfie: UploadFile, event_slug: str = "wedding"):
         n = names[idx]
         best[n] = max(best.get(n, 0), float(sims[idx]))
     ranked = sorted(best.items(), key=lambda kv: -kv[1])[:MAX_RESULTS]
-    return {"count": len(ranked), "photos": [n for n, _ in ranked]}
+    reload_drive_map()
+    photos_data = []
+    for n, score in ranked:
+        photos_data.append({
+            "rel_path": n,
+            "filename": Path(n).name,
+            "drive_file_id": drive_map.get(n),
+            "confidence": round(float(score), 3)
+        })
+    return {"count": len(ranked), "photos": photos_data, "legacy_photos": [n for n, _ in ranked]}
 
 @app.post("/api/search")
 def default_search(selfie: UploadFile = File(...)):
@@ -257,8 +266,13 @@ def event_search(slug: str, selfie: UploadFile = File(...)):
 
 @app.get("/thumb/{name:path}")
 def thumb(name: str):
-    """Delivers 480px web thumbnail safely."""
-    # Check root thumbs first, then event thumbs
+    """Delivers 480px web thumbnail or cropped face avatar safely."""
+    if name.startswith("faces/"):
+        face_name = Path(name).name
+        target = DATA / "faces" / face_name
+        if target.exists():
+            return FileResponse(target)
+
     target = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
     if not target.exists():
         # Search in events/*/thumbs
@@ -355,7 +369,7 @@ def public_album_photos(slug: str, album_slug: str):
         raise HTTPException(404, "Album not found")
         
     cursor.execute("""
-        SELECT id, filename, rel_path, is_featured, created_at
+        SELECT id, filename, rel_path, drive_file_id, is_featured, created_at
         FROM photos
         WHERE album_id = ? AND is_deleted = 0 AND is_hidden = 0
         ORDER BY is_featured DESC, id DESC
