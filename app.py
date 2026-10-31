@@ -4,6 +4,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 import cv2
 import numpy as np
+import requests
 from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends, Form
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +14,8 @@ import json
 from database import (
     get_db, init_db, migrate_existing_data,
     cluster_and_sync_people, list_people_for_event, get_person_photos,
-    create_task_record, update_task_progress, get_latest_task, list_task_history, get_task_by_id
+    create_task_record, update_task_progress, get_latest_task, list_task_history, get_task_by_id,
+    stop_running_tasks
 )
 
 BASE = Path(__file__).parent
@@ -95,6 +97,8 @@ active_tokens = set()
 task_lock = threading.Lock()
 current_task = {"status": "idle", "type": None, "message": "Ready", "event": None}
 log_buffer = []
+active_process = None
+task_cancel_event = threading.Event()
 
 def append_log(msg: str):
     global log_buffer
@@ -113,8 +117,57 @@ def get_auth_token(req: Request) -> str:
         raise HTTPException(401, "Unauthorized. Please log in with the admin key.")
     return token
 
+def download_gdrive_file(url: str, dest_path: Path) -> tuple[bool, str]:
+    """Downloads a single Google Drive file directly via HTTP stream with confirmation token support."""
+    tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
+    try:
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        resp = session.get(url, stream=True, timeout=45)
+        
+        # Check for virus scan confirmation token if returned
+        for k, v in resp.cookies.items():
+            if k.startswith("download_warning"):
+                sep = "&" if "?" in url else "?"
+                resp = session.get(f"{url}{sep}confirm={v}", stream=True, timeout=45)
+                break
+                
+        # Also check html body for confirm link if returned as html
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            text = resp.text[:2000]
+            m = re.search(r'href="(/uc\?export=download[^"]+confirm=([^"&]+)[^"]*)"', text)
+            if m:
+                confirm_url = "https://drive.google.com" + m.group(1).replace("&amp;", "&")
+                resp = session.get(confirm_url, stream=True, timeout=45)
+
+        if resp.status_code != 200:
+            return False, f"HTTP {resp.status_code}"
+
+        with open(tmp_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if task_cancel_event.is_set():
+                    if tmp_path.exists():
+                        try: tmp_path.unlink()
+                        except Exception: pass
+                    return False, "Cancelled"
+                if chunk:
+                    f.write(chunk)
+
+        if tmp_path.exists():
+            tmp_path.replace(dest_path)
+            return True, "OK"
+        return False, "File missing after write"
+    except Exception as e:
+        if tmp_path.exists():
+            try: tmp_path.unlink()
+            except Exception: pass
+        return False, str(e)
+
 def run_indexing_task(event_slug="wedding", task_id=None):
-    global current_task
+    global current_task, active_process
     owns_task = False
     if not task_id:
         owns_task = True
@@ -143,12 +196,26 @@ def run_indexing_task(event_slug="wedding", task_id=None):
             bufsize=1,
             cwd=str(BASE)
         )
+        active_process = proc
         for line in proc.stdout:
+            if task_cancel_event.is_set():
+                proc.kill()
+                break
             txt = line.rstrip()
             append_log(txt)
             update_task_progress(task_id, log_line=txt)
 
         proc.wait()
+        active_process = None
+
+        if task_cancel_event.is_set():
+            append_log("Indexing cancelled by administrator.")
+            with task_lock:
+                current_task["status"] = "cancelled"
+                current_task["message"] = "Task stopped by admin."
+            update_task_progress(task_id, status="cancelled", current_step="Task stopped by admin.", log_line="Indexing cancelled by administrator.")
+            return
+
         get_event_index(event_slug)
         cluster_and_sync_people(event_slug)
         append_log(f"--- Face Indexing for '{event_slug}' Completed (exit code {proc.returncode}) ---")
@@ -162,16 +229,22 @@ def run_indexing_task(event_slug="wedding", task_id=None):
                                  current_step=f"Face indexing & clustering completed successfully for '{event_slug}'.",
                                  log_line="Face indexing and clustering finished successfully.")
     except Exception as e:
+        active_process = None
         append_log(f"Indexing error: {e}")
         with task_lock:
             current_task["status"] = "error"
             current_task["message"] = f"Error: {e}"
         update_task_progress(task_id, status="failed", current_step=f"Error: {e}", log_line=f"ERROR: {e}")
 
-def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: str):
-    global current_task, drive_map
+def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: str, allowed_exts: list = None):
+    global current_task, drive_map, active_process
+    task_cancel_event.clear()
     task_id = f"gdrive_{secrets.token_hex(4)}"
     create_task_record(task_id, "gdrive_ingest", event_slug, dest_dir.name, url)
+
+    if not allowed_exts:
+        allowed_exts = ["jpg", "jpeg", "png", "webp"]
+    allowed_set = {x.lower().strip(".") for x in allowed_exts}
 
     with task_lock:
         current_task = {
@@ -185,96 +258,180 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
             "processed_files": 0,
             "total_files": 0,
             "storage_saved_mb": 0.0,
-            "message": f"Downloading from Google Drive into '{dest_dir.name}'...",
+            "message": f"Scanning Google Drive folder into '{dest_dir.name}'...",
             "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
     append_log(f"[{datetime.now().strftime('%H:%M:%S')}] Starting Google Drive download for event '{event_slug}', folder '{dest_dir.name}' from {url}")
-    update_task_progress(task_id, progress_pct=5, current_step="Initializing Google Drive folder scan...", log_line=f"Target: {dest_dir.name} | Source: {url}")
+    update_task_progress(task_id, progress_pct=5, current_step="Scanning Google Drive folder manifest...",
+                         log_line=f"Target: {dest_dir.name} | Formats: {', '.join(sorted(allowed_set))} | Source: {url}")
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     map_file = DATA / "drive_map.json"
-    current_fid = None
-    total_detected = 0
     processed_count = 0
     saved_bytes_total = 0
 
     try:
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "gdown", "--folder", url, "-O", str(dest_dir)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
-        for line in proc.stdout:
-            txt = line.rstrip()
-            append_log(txt)
-            update_task_progress(task_id, log_line=txt)
+        # Step 1: Scan manifest using gdown --folder --json
+        cmd = [sys.executable, "-m", "gdown", "--folder", "--json", url]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        active_process = proc
+        stdout, stderr = proc.communicate()
+        active_process = None
 
-            m = re.search(r'Processing file ([a-zA-Z0-9_-]+) ([a-zA-Z0-9_.-]+)', txt)
-            if m:
-                fid, fname = m.group(1), m.group(2)
-                drive_map[f"{rel_prefix}/{fname}"] = fid
-                drive_map[fname] = fid
-                total_detected += 1
+        if task_cancel_event.is_set():
+            append_log("Google Drive scan cancelled by administrator.")
+            with task_lock:
+                current_task["status"] = "cancelled"
+                current_task["message"] = "Task stopped by admin."
+            update_task_progress(task_id, status="cancelled", current_step="Task stopped by admin.", log_line="Scan cancelled by administrator.")
+            return
 
-            m_from = re.search(r'From:\s*https://drive\.google\.com/uc\?id=([a-zA-Z0-9_-]+)', txt)
-            if m_from:
-                current_fid = m_from.group(1)
+        items = []
+        try:
+            if stdout and stdout.strip().startswith("["):
+                items = json.loads(stdout.strip())
+        except Exception as e:
+            append_log(f"Manifest parse warning: {e}")
 
-            m_to = re.search(r'To:\s*.*[/\\]([a-zA-Z0-9_.-]+)', txt)
-            if m_to and current_fid:
-                fname = m_to.group(1)
-                drive_map[f"{rel_prefix}/{fname}"] = current_fid
-                drive_map[fname] = current_fid
-                current_fid = None
-                processed_count += 1
+        # Step 2: Apply format filter
+        if items:
+            valid_items = []
+            skipped_count = 0
+            for item in items:
+                p = item.get("path", "")
+                ext = p.rsplit(".", 1)[-1].lower() if "." in p else ""
+                if ext in allowed_set:
+                    valid_items.append(item)
+                else:
+                    skipped_count += 1
+            
+            total_photos = len(valid_items)
+            append_log(f"Manifest scan complete: found {len(items)} files. Filter kept {total_photos} photos ({', '.join(sorted(allowed_set))}), skipped {skipped_count} unsupported/RAW files.")
+            update_task_progress(task_id, progress_pct=10, total_files=total_photos,
+                                 current_step=f"Found {total_photos} photos matching format filter (skipped {skipped_count} RAW/unsupported files)",
+                                 log_line=f"Found {len(items)} total files. Kept {total_photos} photos, skipped {skipped_count} files.")
 
-                # Immediate optimization: downscale 30MB RAW to ~350KB web preview immediately
-                downloaded_file = dest_dir / fname
-                if downloaded_file.exists():
-                    orig_size = downloaded_file.stat().st_size
-                    optimize_photo_inplace(downloaded_file)
-                    new_size = downloaded_file.stat().st_size
+            # Step 3: Stream download each valid photo directly
+            for idx, item in enumerate(valid_items):
+                if task_cancel_event.is_set():
+                    append_log("Download cancelled by administrator.")
+                    with task_lock:
+                        current_task["status"] = "cancelled"
+                        current_task["message"] = "Task stopped by admin."
+                    update_task_progress(task_id, status="cancelled", current_step="Task stopped by admin.", log_line="Task cancelled by administrator.")
+                    return
+
+                fname = Path(item.get("path", f"photo_{idx}.jpg")).name
+                furl = item.get("url", "")
+                
+                # Extract file id
+                fid_match = re.search(r'id=([a-zA-Z0-9_-]+)', furl)
+                fid = fid_match.group(1) if fid_match else ""
+
+                dest_file = dest_dir / fname
+                
+                # Skip if already exists and is valid
+                if dest_file.exists() and dest_file.stat().st_size > 1000:
+                    if fid:
+                        drive_map[f"{rel_prefix}/{fname}"] = fid
+                        drive_map[fname] = fid
+                    processed_count += 1
+                    continue
+
+                # Download with retry
+                success = False
+                err_msg = ""
+                for attempt in range(3):
+                    if task_cancel_event.is_set():
+                        break
+                    success, err_msg = download_gdrive_file(furl, dest_file)
+                    if success:
+                        break
+                    time.sleep(1.5 * (attempt + 1))
+
+                if task_cancel_event.is_set():
+                    if dest_file.exists():
+                        try: dest_file.unlink()
+                        except Exception: pass
+                    break
+
+                if success and dest_file.exists():
+                    orig_size = dest_file.stat().st_size
+                    optimize_photo_inplace(dest_file)
+                    new_size = dest_file.stat().st_size
                     saved_bytes_total += max(0, orig_size - new_size)
-                    time.sleep(0.04) # Prevent CPU throttling
+                    
+                    if fid:
+                        drive_map[f"{rel_prefix}/{fname}"] = fid
+                        drive_map[fname] = fid
+                        
+                    processed_count += 1
+                    pct = min(75, 10 + int((processed_count / max(1, total_photos)) * 65))
+                    saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
 
-                pct = min(70, int((processed_count / max(1, total_detected or processed_count)) * 70))
-                saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
-                with task_lock:
-                    current_task["progress_pct"] = pct
-                    current_task["processed_files"] = processed_count
-                    current_task["total_files"] = max(total_detected, processed_count)
-                    current_task["storage_saved_mb"] = saved_mb
-                    current_task["message"] = f"Downloaded & compressed {fname} ({processed_count}/{max(total_detected, processed_count)})"
-                update_task_progress(task_id, progress_pct=pct,
-                                     current_step=f"Downloaded & compressed {fname} ({processed_count} files)",
-                                     processed_files=processed_count, total_files=max(total_detected, processed_count),
-                                     storage_saved_mb=saved_mb)
+                    with task_lock:
+                        current_task["progress_pct"] = pct
+                        current_task["processed_files"] = processed_count
+                        current_task["total_files"] = total_photos
+                        current_task["storage_saved_mb"] = saved_mb
+                        current_task["message"] = f"Downloaded & optimized {fname} ({processed_count}/{total_photos})"
 
-        proc.wait()
-        append_log(f"--- Google Drive download completed (code {proc.returncode}) ---")
+                    if processed_count % 5 == 0 or processed_count == total_photos:
+                        update_task_progress(task_id, progress_pct=pct,
+                                             current_step=f"Downloaded & optimized {fname} ({processed_count}/{total_photos})",
+                                             processed_files=processed_count, total_files=total_photos,
+                                             storage_saved_mb=saved_mb)
+                    time.sleep(0.04) # Keep CPU cool
+                else:
+                    append_log(f"Skipping {fname}: could not download ({err_msg})")
+
+        else:
+            # Fallback if --json manifest could not be retrieved
+            append_log(f"Falling back to standard folder download for {url}...")
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "gdown", "--folder", url, "-O", str(dest_dir)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            active_process = proc
+            for line in proc.stdout:
+                if task_cancel_event.is_set():
+                    proc.kill()
+                    break
+                txt = line.rstrip()
+                append_log(txt)
+            proc.wait()
+            active_process = None
+            
+            # Post-download format filter: remove any unaccepted files (e.g. .arw)
+            for f in dest_dir.rglob("*"):
+                if f.is_file():
+                    ext = f.suffix.lower().strip(".")
+                    if ext not in allowed_set:
+                        try:
+                            f.unlink()
+                            append_log(f"Removed non-accepted file format: {f.name}")
+                        except Exception:
+                            pass
+
+        if task_cancel_event.is_set():
+            append_log("Task stopped by administrator.")
+            with task_lock:
+                current_task["status"] = "cancelled"
+                current_task["message"] = "Task stopped by admin."
+            update_task_progress(task_id, status="cancelled", current_step="Task stopped by admin.")
+            return
+
         try:
             map_file.write_text(json.dumps(drive_map, indent=2))
         except Exception:
             pass
 
-        # Final pass optimization on any leftover large files
-        valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
-        for img_path in dest_dir.rglob("*"):
-            if img_path.is_file() and img_path.suffix.lower() in valid_exts:
-                orig_size = img_path.stat().st_size
-                if orig_size > 700 * 1024:
-                    optimize_photo_inplace(img_path)
-                    new_size = img_path.stat().st_size
-                    saved_bytes_total += max(0, orig_size - new_size)
-                    time.sleep(0.04)
-
-        saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
-        update_task_progress(task_id, progress_pct=75, current_step="Registering photos in database...", storage_saved_mb=saved_mb)
-
-        # Update database with new photos and proper album assignment
+        # Register photos into SQLite database
+        update_task_progress(task_id, progress_pct=78, current_step="Registering photos in database...")
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM events WHERE slug = ?", (event_slug,))
@@ -295,7 +452,7 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
                 album_id = arow["id"]
 
             for img_path in dest_dir.rglob("*"):
-                if img_path.is_file() and img_path.suffix.lower() in valid_exts and not img_path.name.startswith("."):
+                if img_path.is_file() and img_path.suffix.lower().strip(".") in allowed_set and not img_path.name.startswith("."):
                     rel = str(img_path.relative_to(PHOTOS))
                     fsize = img_path.stat().st_size
                     did = drive_map.get(rel) or drive_map.get(img_path.name)
@@ -315,25 +472,34 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
             conn.commit()
         conn.close()
 
-        # Run face indexer with task tracking
-        update_task_progress(task_id, progress_pct=85, current_step="Running AI facial recognition indexing...")
+        if task_cancel_event.is_set():
+            return
+
+        # Trigger indexing
+        update_task_progress(task_id, progress_pct=82, current_step="Starting AI facial recognition indexing...")
         run_indexing_task(event_slug, task_id)
 
         # Final completion
-        with task_lock:
-            current_task["status"] = "completed"
-            current_task["progress_pct"] = 100
-            current_task["message"] = f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'."
-        update_task_progress(task_id, progress_pct=100, status="completed",
-                             current_step=f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'.",
-                             processed_files=processed_count, total_files=max(total_detected, processed_count),
-                             storage_saved_mb=saved_mb, log_line=f"SUCCESS: {processed_count} photos processed.")
+        if not task_cancel_event.is_set():
+            saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
+            with task_lock:
+                current_task["status"] = "completed"
+                current_task["progress_pct"] = 100
+                current_task["message"] = f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'."
+            update_task_progress(task_id, progress_pct=100, status="completed",
+                                 current_step=f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'.",
+                                 processed_files=processed_count, total_files=max(processed_count, 1),
+                                 storage_saved_mb=saved_mb, log_line=f"SUCCESS: {processed_count} photos processed.")
+
     except Exception as e:
-        append_log(f"Google Drive task error: {e}")
+        active_process = None
+        append_log(f"Google Drive ingestion error: {e}")
         with task_lock:
             current_task["status"] = "error"
             current_task["message"] = f"Error: {e}"
         update_task_progress(task_id, status="failed", current_step=f"Error: {e}", log_line=f"ERROR: {e}")
+    finally:
+        active_process = None
 
 app = FastAPI()
 
@@ -1079,13 +1245,14 @@ async def admin_upload_to_event(
 @app.post("/api/admin/events/{slug}/gdrive")
 def admin_event_gdrive(slug: str, payload: dict, token: str = Depends(get_auth_token)):
     if current_task["status"] == "running":
-        raise HTTPException(409, "A task is already running.")
+        raise HTTPException(409, "A task is already running. You can stop it from the progress banner.")
     url = payload.get("url", "").strip()
     if not url:
         raise HTTPException(400, "Google Drive URL is required.")
         
     album_slug = payload.get("album_slug", "").strip() or "gdrive_photos"
     safe_album = "".join(c for c in album_slug if c.isalnum() or c in "-_") or "gdrive_photos"
+    allowed_exts = payload.get("allowed_extensions") or ["jpg", "jpeg", "png", "webp"]
     
     if slug in {"default", "wedding"}:
         dest_dir = PHOTOS / safe_album
@@ -1094,8 +1261,29 @@ def admin_event_gdrive(slug: str, payload: dict, token: str = Depends(get_auth_t
         dest_dir = PHOTOS / "events" / slug / safe_album
         rel_prefix = f"events/{slug}/{safe_album}"
         
-    threading.Thread(target=run_gdrive_download, args=(url, dest_dir, rel_prefix, slug), daemon=True).start()
-    return {"status": "started", "album": safe_album}
+    threading.Thread(target=run_gdrive_download, args=(url, dest_dir, rel_prefix, slug, allowed_exts), daemon=True).start()
+    return {"status": "started", "album": safe_album, "allowed_formats": allowed_exts}
+
+@app.post("/api/admin/tasks/stop")
+def admin_stop_task(token: str = Depends(get_auth_token)):
+    global active_process
+    task_cancel_event.set()
+    if active_process and active_process.poll() is None:
+        try:
+            active_process.terminate()
+            time.sleep(0.5)
+            if active_process.poll() is None:
+                active_process.kill()
+        except Exception:
+            pass
+    active_process = None
+    with task_lock:
+        current_task["status"] = "cancelled"
+        current_task["message"] = "Task stopped by admin."
+    
+    stop_running_tasks("Task stopped by administrator.")
+    append_log("--- Active background task was stopped by administrator ---")
+    return {"status": "stopped", "message": "Background task successfully terminated."}
 
 @app.post("/api/admin/events/{slug}/index")
 def admin_event_index(slug: str, token: str = Depends(get_auth_token)):

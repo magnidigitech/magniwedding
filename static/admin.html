@@ -955,6 +955,10 @@
           </div>
           <div class="task-meta-right" style="display:flex;align-items:center;gap:0.6rem;">
             <span id="taskTimeElapsed" style="font-size:0.78rem;color:var(--muted);font-family:monospace;"></span>
+            <button id="taskStopBtn" class="btn-danger-pill" style="padding:0.25rem 0.65rem;font-size:0.75rem;display:none;align-items:center;gap:0.35rem;background:#fee2e2;color:#991b1b;border:1px solid #f87171;border-radius:6px;cursor:pointer;font-weight:600;" onclick="stopActiveTask()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+              <span>Stop Task</span>
+            </button>
             <button class="btn-outline" style="padding:0.2rem 0.5rem;font-size:0.75rem;" onclick="switchTab('logs')">View Logs &rarr;</button>
             <button class="btn-icon-sub" style="width:24px;height:24px;border:0;background:transparent;font-size:1.1rem;cursor:pointer;" onclick="dismissTaskCard()" title="Dismiss">&times;</button>
           </div>
@@ -1175,6 +1179,30 @@
               <div style="display:flex;gap:0.75rem;align-items:center;">
                 <select id="gdriveTargetAlbumSelect" style="flex:1;"></select>
                 <input type="text" id="gdriveCustomSlugInput" placeholder="or enter folder slug (e.g. vignehsh-birthday)" style="flex:1;">
+              </div>
+            </div>
+            <div class="field" style="margin-top:0.75rem;">
+              <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+                <span style="font-weight:600;font-size:0.85rem;">Accepted File Formats to Download</span>
+                <span style="font-size:0.75rem;color:var(--muted);font-weight:normal;">Unchecked formats (e.g. .ARW Sony RAW, .CR2, .MP4, .MP3, .PDF) are skipped</span>
+              </label>
+              <div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:0.6rem 0.8rem;background:var(--bg-subtle,#f8fafc);border:1px solid var(--border-color,#e2e8f0);border-radius:6px;">
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;user-select:none;">
+                  <input type="checkbox" id="gdriveFmtJpg" checked>
+                  <span style="font-weight:600;">JPG / JPEG</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;user-select:none;">
+                  <input type="checkbox" id="gdriveFmtPng" checked>
+                  <span style="font-weight:600;">PNG</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;user-select:none;">
+                  <input type="checkbox" id="gdriveFmtWebp" checked>
+                  <span style="font-weight:600;">WEBP</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;user-select:none;">
+                  <input type="checkbox" id="gdriveFmtHeic">
+                  <span style="font-weight:500;color:var(--text-sub,#64748b);">HEIC / HEIF</span>
+                </label>
               </div>
             </div>
             <div style="display:flex;gap:0.75rem;align-items:center;">
@@ -2115,13 +2143,25 @@ $('startGdriveSyncBtn').addEventListener('click', async () => {
   const url = $('gdriveUrlInput').value.trim();
   if (!url) { alert('Please enter a Google Drive folder URL'); return; }
   const albumSlug = $('gdriveCustomSlugInput').value.trim() || $('gdriveTargetAlbumSelect').value || 'gdrive_photos';
+  
+  const allowed = [];
+  if ($('gdriveFmtJpg') && $('gdriveFmtJpg').checked) allowed.push('jpg', 'jpeg');
+  if ($('gdriveFmtPng') && $('gdriveFmtPng').checked) allowed.push('png');
+  if ($('gdriveFmtWebp') && $('gdriveFmtWebp').checked) allowed.push('webp');
+  if ($('gdriveFmtHeic') && $('gdriveFmtHeic').checked) allowed.push('heic', 'heif');
+  
+  if (allowed.length === 0) {
+    alert('Please select at least one accepted image format.');
+    return;
+  }
+
   $('startGdriveSyncBtn').disabled = true;
   $('gdriveStatusText').textContent = `Starting background sync into '${albumSlug}'...`;
   try {
     const res = await fetch(`/api/admin/events/${activeSlug}/gdrive`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, album_slug: albumSlug })
+      body: JSON.stringify({ url, album_slug: albumSlug, allowed_extensions: allowed })
     });
     if (res.ok) {
       $('gdriveStatusText').textContent = 'Sync started in background! Tracking live progress...';
@@ -2233,9 +2273,15 @@ async function pollTaskStatus() {
     const statusTxt = $('taskStatusText');
 
     const status = task.status || (isRunning ? 'running' : 'completed');
+    const isCancelled = status === 'cancelled';
     pill.className = `task-status-pill ${status === 'running' ? 'running' : (status === 'completed' ? 'completed' : 'failed')}`;
     pulse.style.display = status === 'running' ? 'inline-block' : 'none';
-    statusTxt.textContent = status.toUpperCase();
+    statusTxt.textContent = isCancelled ? 'STOPPED' : status.toUpperCase();
+
+    const stopBtn = $('taskStopBtn');
+    if (stopBtn) {
+      stopBtn.style.display = (isRunning || status === 'running') ? 'inline-flex' : 'none';
+    }
 
     // Task Name & Target
     const isGdrive = (task.task_type || task.type) === 'gdrive_ingest' || (task.task_type || task.type) === 'gdrive';
@@ -2273,6 +2319,36 @@ async function pollTaskStatus() {
     }
   } catch (e) {
     console.error('Error polling task:', e);
+  }
+}
+
+async function stopActiveTask() {
+  const btn = $('taskStopBtn');
+  if (!confirm('Are you sure you want to stop this running background task?')) return;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Stopping...</span>';
+  }
+  try {
+    const res = await fetch('/api/admin/tasks/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const j = await res.json();
+    if (res.ok) {
+      $('taskStepDesc').textContent = 'Task stopped by administrator.';
+      pollTaskStatus();
+      loadTaskHistory();
+    } else {
+      alert(j.detail || 'Could not stop task');
+    }
+  } catch (e) {
+    alert('Error stopping task: ' + e);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Stop Task</span>`;
+    }
   }
 }
 

@@ -148,7 +148,7 @@ def update_task_progress(task_id: str, progress_pct: int = None, current_step: s
     if status is not None:
         fields.append("status = ?")
         vals.append(status)
-        if status in {"completed", "failed"}:
+        if status in {"completed", "failed", "cancelled"}:
             fields.append("completed_at = CURRENT_TIMESTAMP")
     if log_line:
         fields.append("log_text = log_text || ?")
@@ -158,6 +158,22 @@ def update_task_progress(task_id: str, progress_pct: int = None, current_step: s
         c.execute(f"UPDATE task_history SET {', '.join(fields)} WHERE task_id = ?", vals)
         conn.commit()
     conn.close()
+
+def stop_running_tasks(reason="Task stopped by admin."):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        UPDATE task_history 
+        SET status = 'cancelled', 
+            current_step = ?, 
+            completed_at = CURRENT_TIMESTAMP,
+            log_text = log_text || ?
+        WHERE status = 'running'
+    """, (reason, f"[{reason}]\n"))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected
 
 def get_latest_task():
     conn = get_db()
