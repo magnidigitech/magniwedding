@@ -668,7 +668,11 @@ async function loadPersonPhotos(personId, personName) {
 }
 
 function renderPhotos(photosList) {
-  currentPhotosList = photosList || [];
+  currentPhotosList = (photosList || []).slice().sort((a, b) => {
+    const nameA = (typeof a === 'string' ? a.split('/').pop() : (a.filename || a.rel_path.split('/').pop())).toLowerCase();
+    const nameB = (typeof b === 'string' ? b.split('/').pop() : (b.filename || b.rel_path.split('/').pop())).toLowerCase();
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const grid = $('photosGrid');
   grid.replaceChildren();
   if (currentPhotosList.length === 0) {

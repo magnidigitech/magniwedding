@@ -372,7 +372,7 @@ def public_album_photos(slug: str, album_slug: str):
         SELECT id, filename, rel_path, drive_file_id, is_featured, created_at
         FROM photos
         WHERE album_id = ? AND is_deleted = 0 AND is_hidden = 0
-        ORDER BY is_featured DESC, id DESC
+        ORDER BY is_featured DESC, filename ASC
     """, (album["id"],))
     photos = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -610,7 +610,7 @@ def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends
             JOIN events e ON p.event_id = e.id
             LEFT JOIN albums a ON p.album_id = a.id
             WHERE e.slug = ? AND p.album_id = ? AND p.is_deleted = 0
-            ORDER BY p.is_featured DESC, p.id DESC
+            ORDER BY p.is_featured DESC, p.filename ASC
         """, (slug, album_id))
     else:
         cursor.execute("""
@@ -619,7 +619,7 @@ def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends
             JOIN events e ON p.event_id = e.id
             LEFT JOIN albums a ON p.album_id = a.id
             WHERE e.slug = ? AND p.is_deleted = 0
-            ORDER BY p.is_featured DESC, p.id DESC
+            ORDER BY p.is_featured DESC, p.filename ASC
         """, (slug,))
     photos = [dict(r) for r in cursor.fetchall()]
     conn.close()

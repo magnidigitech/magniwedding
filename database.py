@@ -298,7 +298,7 @@ def get_person_photos(event_slug: str, person_id: int):
         JOIN events e ON ph.event_id = e.id
         LEFT JOIN albums a ON ph.album_id = a.id
         WHERE e.slug = ? AND fd.person_id = ? AND ph.is_deleted = 0 AND ph.is_hidden = 0
-        ORDER BY ph.is_featured DESC, ph.id DESC
+        ORDER BY ph.is_featured DESC, ph.filename ASC
     """, (event_slug, person_id))
     photos = [dict(r) for r in cursor.fetchall()]
     conn.close()
