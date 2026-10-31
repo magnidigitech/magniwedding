@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir opencv-python-headless \
     && python -c "import cv2; print('OpenCV successfully loaded:', cv2.__version__)"
 
-COPY app.py index_photos.py ./
+COPY app.py index_photos.py database.py ./
 COPY static ./static
 
 ENV STORAGE_DIR=/storage

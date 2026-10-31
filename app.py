@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from insightface.app import FaceAnalysis
 import json
 
+from database import get_db, init_db, migrate_existing_data
+
 BASE = Path(__file__).parent
 STORAGE = Path(os.environ.get("STORAGE_DIR", BASE / "storage"))
 PHOTOS = STORAGE / "photos"
@@ -17,24 +19,25 @@ MODELS = STORAGE / "models"
 PHOTOS.mkdir(parents=True, exist_ok=True)
 MODELS.mkdir(parents=True, exist_ok=True)
 DATA.mkdir(parents=True, exist_ok=True)
-THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.40"))  # raise = stricter
+THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.40"))
 MAX_RESULTS = 300
 MAX_UPLOAD = 10 * 1024 * 1024
 ADMIN_KEY = os.environ.get("ADMIN_KEY", "Magni@3939")
 
-embs = np.zeros((0, 512), dtype=np.float32)
-names, known, loaded_mtime = [], set(), 0.0
+# Initialize database on startup
+init_db()
+migrate_existing_data()
+
+face_app = FaceAnalysis(name="buffalo_l", root=str(MODELS), providers=["CPUExecutionProvider"])
+face_app.prepare(ctx_id=-1, det_size=(640, 640))
+lock = threading.Lock()
+
+# Multi-event vector index cache: { slug: { "embs": ..., "names": ..., "known": ..., "mtime": ... } }
+event_indices = {}
 drive_map = {}
 
-def reload_index():
-    """Re-reads the index whenever indexing has produced a newer file (no restart needed)."""
-    global embs, names, known, loaded_mtime, drive_map
-    f = DATA / "embeddings.npy"
-    if f.exists() and f.stat().st_mtime != loaded_mtime:
-        embs = np.load(f)
-        names = json.loads((DATA / "names.json").read_text())
-        known = set(names)
-        loaded_mtime = f.stat().st_mtime
+def reload_drive_map():
+    global drive_map
     map_file = DATA / "drive_map.json"
     if map_file.exists():
         try:
@@ -42,29 +45,50 @@ def reload_index():
         except Exception:
             pass
 
+reload_drive_map()
+
+def get_event_index(slug: str = "wedding"):
+    """Loads and caches face embeddings for a specific event slug."""
+    if slug in {"default", "wedding"}:
+        data_dir = DATA
+    else:
+        data_dir = DATA / "events" / slug
+        
+    f = data_dir / "embeddings.npy"
+    names_file = data_dir / "names.json"
+    
+    if not f.exists() or not names_file.exists():
+        return np.zeros((0, 512), dtype=np.float32), [], set()
+        
+    mtime = f.stat().st_mtime
+    cached = event_indices.get(slug)
+    if not cached or cached["mtime"] != mtime:
+        try:
+            embs = np.load(f)
+            names = json.loads(names_file.read_text())
+            known = set(names)
+            event_indices[slug] = {"embs": embs, "names": names, "known": known, "mtime": mtime}
+        except Exception:
+            return np.zeros((0, 512), dtype=np.float32), [], set()
+            
+    return event_indices[slug]["embs"], event_indices[slug]["names"], event_indices[slug]["known"]
+
 def optimize_photo_inplace(path: Path, max_dim=1920, quality=82):
-    """Compresses large RAW/camera photo down to a lightweight web-friendly file (~500KB-800KB)."""
     try:
         if path.stat().st_size <= 900 * 1024:
-            return  # Already lightweight
+            return
         with Image.open(path) as img:
             img = ImageOps.exif_transpose(img).convert("RGB")
             if max(img.size) > max_dim:
                 img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
             img.save(path, "JPEG", quality=quality, optimize=True)
-    except Exception as e:
+    except Exception:
         pass
 
-reload_index()
-
-face_app = FaceAnalysis(name="buffalo_l", root=str(MODELS), providers=["CPUExecutionProvider"])
-face_app.prepare(ctx_id=-1, det_size=(640, 640))
-lock = threading.Lock()  # one search at a time keeps the CPU happy
-
-# Admin session & background tasks
+# Admin session & tasks
 active_tokens = set()
 task_lock = threading.Lock()
-current_task = {"status": "idle", "type": None, "message": "Ready"}
+current_task = {"status": "idle", "type": None, "message": "Ready", "event": None}
 log_buffer = []
 
 def append_log(msg: str):
@@ -84,16 +108,17 @@ def get_auth_token(req: Request) -> str:
         raise HTTPException(401, "Unauthorized. Please log in with the admin key.")
     return token
 
-def run_indexing_task():
+def run_indexing_task(event_slug="wedding"):
     global current_task
     with task_lock:
         current_task["status"] = "running"
         current_task["type"] = "indexing"
-        current_task["message"] = "Face indexing in progress..."
-    append_log("--- Starting Face Indexing ---")
+        current_task["event"] = event_slug
+        current_task["message"] = f"Face indexing for event '{event_slug}' in progress..."
+    append_log(f"--- Starting Face Indexing for event '{event_slug}' ---")
     try:
         proc = subprocess.Popen(
-            [sys.executable, str(BASE / "index_photos.py")],
+            [sys.executable, str(BASE / "index_photos.py"), "--event", event_slug],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -103,27 +128,29 @@ def run_indexing_task():
         for line in proc.stdout:
             append_log(line.rstrip())
         proc.wait()
-        reload_index()
-        append_log(f"--- Face Indexing Completed (exit code {proc.returncode}) ---")
+        get_event_index(event_slug)
+        append_log(f"--- Face Indexing for '{event_slug}' Completed (exit code {proc.returncode}) ---")
         with task_lock:
             current_task["status"] = "idle"
             current_task["type"] = None
-            current_task["message"] = f"Indexing finished successfully ({len(known)} photos, {len(embs)} faces)."
+            current_task["event"] = None
+            current_task["message"] = f"Indexing finished successfully for event '{event_slug}'."
     except Exception as e:
         append_log(f"Indexing error: {e}")
         with task_lock:
             current_task["status"] = "error"
             current_task["type"] = None
+            current_task["event"] = None
             current_task["message"] = f"Error: {e}"
 
-def run_gdrive_download(url: str, folder_name: str):
+def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: str):
     global current_task, drive_map
     with task_lock:
         current_task["status"] = "running"
         current_task["type"] = "gdrive"
-        current_task["message"] = f"Downloading from Google Drive into '{folder_name}'..."
-    append_log(f"--- Starting Google Drive Download into {folder_name} ---")
-    dest_dir = PHOTOS / folder_name
+        current_task["event"] = event_slug
+        current_task["message"] = f"Downloading from Google Drive into '{dest_dir.name}'..."
+    append_log(f"--- Starting Google Drive Download into {dest_dir} ---")
     dest_dir.mkdir(parents=True, exist_ok=True)
     map_file = DATA / "drive_map.json"
     try:
@@ -140,26 +167,43 @@ def run_gdrive_download(url: str, folder_name: str):
             m = re.search(r'Processing file ([a-zA-Z0-9_-]+) ([a-zA-Z0-9_.-]+)', txt)
             if m:
                 fid, fname = m.group(1), m.group(2)
-                drive_map[f"{folder_name}/{fname}"] = fid
+                drive_map[f"{rel_prefix}/{fname}"] = fid
         proc.wait()
         append_log(f"--- Google Drive Download Finished (exit code {proc.returncode}) ---")
         
-        # Save updated mapping
         try:
             map_file.write_text(json.dumps(drive_map, indent=2))
         except Exception:
             pass
             
-        # Optimize / compress photos locally to save 95%+ VPS disk space
-        append_log("Compressing images for VPS storage optimization...")
+        append_log("Optimizing downloaded images for VPS storage...")
         valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
         for img_path in dest_dir.rglob("*"):
             if img_path.suffix.lower() in valid_exts:
                 optimize_photo_inplace(img_path)
-        append_log("Image optimization complete.")
+        append_log("Optimization complete.")
 
-        # Automatically run indexing after download completes
-        run_indexing_task()
+        # Update database with new photos
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM events WHERE slug = ?", (event_slug,))
+        erow = cursor.fetchone()
+        if erow:
+            eid = erow["id"]
+            for img_path in dest_dir.rglob("*"):
+                if img_path.is_file() and img_path.suffix.lower() in valid_exts:
+                    rel = str(img_path.relative_to(PHOTOS))
+                    fsize = img_path.stat().st_size
+                    did = drive_map.get(rel)
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO photos (event_id, filename, rel_path, drive_file_id, file_size_bytes)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (eid, img_path.name, rel, did, fsize))
+            conn.commit()
+        conn.close()
+
+        # Run face indexer
+        run_indexing_task(event_slug)
     except Exception as e:
         append_log(f"Google Drive download error: {e}")
         with task_lock:
@@ -169,15 +213,16 @@ def run_gdrive_download(url: str, folder_name: str):
 
 app = FastAPI()
 
-@app.post("/api/search")
-def search(selfie: UploadFile = File(...)):
-    reload_index()
+# --- Search & Public Delivery APIs ---
+
+def perform_face_search(selfie: UploadFile, event_slug: str = "wedding"):
+    embs, names, known = get_event_index(event_slug)
     if len(names) == 0:
-        raise HTTPException(503, "Photos are still being prepared. Please check back soon.")
+        raise HTTPException(503, "Photos are still being prepared for this event. Please check back soon.")
     data = selfie.file.read(MAX_UPLOAD + 1)
     if len(data) > MAX_UPLOAD:
         raise HTTPException(413, "Photo is too large. Use one under 10 MB.")
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)  # selfie never saved to disk
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise HTTPException(400, "That file is not a readable image.")
     h, w = img.shape[:2]
@@ -197,27 +242,102 @@ def search(selfie: UploadFile = File(...)):
     ranked = sorted(best.items(), key=lambda kv: -kv[1])[:MAX_RESULTS]
     return {"count": len(ranked), "photos": [n for n, _ in ranked]}
 
+@app.post("/api/search")
+def default_search(selfie: UploadFile = File(...)):
+    """Legacy backward-compatible search for the primary wedding."""
+    return perform_face_search(selfie, "wedding")
+
+@app.post("/api/{slug}/search")
+def event_search(slug: str, selfie: UploadFile = File(...)):
+    """Scoped facial recognition search for a specific event."""
+    return perform_face_search(selfie, slug)
+
 @app.get("/thumb/{name:path}")
 def thumb(name: str):
-    if name not in known:
-        reload_index()
-    if name not in known:
-        raise HTTPException(404)
-    return FileResponse(DATA / "thumbs" / (name.replace("/", "__") + ".jpg"))
+    """Delivers 480px web thumbnail safely."""
+    # Check root thumbs first, then event thumbs
+    target = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if not target.exists():
+        # Search in events/*/thumbs
+        candidates = list(DATA.glob(f"events/*/thumbs/{name.replace('/', '__')}.jpg"))
+        if candidates:
+            target = candidates[0]
+        else:
+            raise HTTPException(404)
+    return FileResponse(target)
 
 @app.get("/photo/{name:path}")
 def photo(name: str):
-    if name not in known:
-        reload_index()
-    if name not in known:
-        raise HTTPException(404)
+    """Delivers full image or redirects directly to Google Drive 5TB storage."""
+    reload_drive_map()
     drive_id = drive_map.get(name)
     if drive_id:
         return RedirectResponse(
             f"https://drive.google.com/uc?export=download&id={drive_id}",
             status_code=302
         )
-    return FileResponse(PHOTOS / name, filename=Path(name).name)
+    target = PHOTOS / name
+    if not target.exists():
+        raise HTTPException(404)
+    return FileResponse(target, filename=Path(name).name)
+
+# --- Public Event Metadata APIs ---
+
+@app.get("/api/public/events/{slug}")
+def public_event_details(slug: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE slug = ? AND status != 'archived'", (slug,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+        
+    cursor.execute("""
+        SELECT a.*, COUNT(p.id) as photo_count 
+        FROM albums a
+        LEFT JOIN photos p ON a.id = p.album_id AND p.is_deleted = 0 AND p.is_hidden = 0
+        WHERE a.event_id = ? AND a.is_published = 1
+        GROUP BY a.id
+        ORDER BY a.sort_order ASC, a.name ASC
+    """, (event["id"],))
+    albums = [dict(row) for row in cursor.fetchall()]
+    
+    cursor.execute("SELECT COUNT(id) as total FROM photos WHERE event_id = ? AND is_deleted = 0", (event["id"],))
+    photo_count = cursor.fetchone()["total"]
+    conn.close()
+    
+    return {
+        "event": dict(event),
+        "albums": albums,
+        "photo_count": photo_count
+    }
+
+@app.get("/api/public/events/{slug}/albums/{album_slug}")
+def public_album_photos(slug: str, album_slug: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name, a.slug, e.id as event_id
+        FROM albums a
+        JOIN events e ON a.event_id = e.id
+        WHERE e.slug = ? AND a.slug = ? AND a.is_published = 1
+    """, (slug, album_slug))
+    album = cursor.fetchone()
+    if not album:
+        conn.close()
+        raise HTTPException(404, "Album not found")
+        
+    cursor.execute("""
+        SELECT id, filename, rel_path, is_featured, created_at
+        FROM photos
+        WHERE album_id = ? AND is_deleted = 0 AND is_hidden = 0
+        ORDER BY is_featured DESC, id DESC
+    """, (album["id"],))
+    photos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return {"album": dict(album), "photos": photos}
 
 # --- Admin APIs ---
 
@@ -225,7 +345,7 @@ def photo(name: str):
 async def admin_login(payload: dict):
     key = payload.get("key", "").strip()
     if key != ADMIN_KEY:
-        raise HTTPException(401, "Incorrect admin key. Please try again.")
+        raise HTTPException(401, "Incorrect admin key.")
     token = secrets.token_hex(24)
     active_tokens.add(token)
     response = JSONResponse({"status": "ok", "token": token})
@@ -239,38 +359,192 @@ def admin_logout(token: str = Depends(get_auth_token)):
     response.delete_cookie("admin_token")
     return response
 
-@app.get("/api/admin/status")
-def admin_status(token: str = Depends(get_auth_token)):
-    reload_index()
-    folders = []
-    total_files = 0
-    valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
-    if PHOTOS.exists():
-        for p in sorted(PHOTOS.iterdir()):
-            if p.is_dir():
-                c = sum(1 for f in p.rglob("*") if f.suffix.lower() in valid_exts)
-                folders.append({"name": p.name, "count": c})
-                total_files += c
-            elif p.suffix.lower() in valid_exts:
-                total_files += 1
+@app.get("/api/admin/overview")
+def admin_overview(token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(id) as total FROM events WHERE status != 'archived'")
+    total_events = cursor.fetchone()["total"]
+    
+    cursor.execute("SELECT COUNT(id) as active FROM events WHERE status = 'published'")
+    active_events = cursor.fetchone()["active"]
+    
+    cursor.execute("SELECT COUNT(id) as total_photos FROM photos WHERE is_deleted = 0")
+    total_photos = cursor.fetchone()["total_photos"]
+    
+    cursor.execute("SELECT COUNT(id) as total_albums FROM albums")
+    total_albums = cursor.fetchone()["total_albums"]
+    
+    cursor.execute("""
+        SELECT e.*, COUNT(p.id) as photo_count, COUNT(DISTINCT a.id) as album_count
+        FROM events e
+        LEFT JOIN photos p ON e.id = p.event_id AND p.is_deleted = 0
+        LEFT JOIN albums a ON e.id = a.event_id
+        WHERE e.status != 'archived'
+        GROUP BY e.id
+        ORDER BY e.created_at DESC
+    """)
+    events = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
     return {
-        "status": "ok",
-        "total_photos": total_files,
-        "indexed_photos": len(known),
-        "indexed_faces": len(names),
-        "folders": folders,
+        "metrics": {
+            "total_events": total_events,
+            "active_events": active_events,
+            "total_photos": total_photos,
+            "total_albums": total_albums
+        },
+        "events": events,
         "current_task": current_task
     }
 
-@app.post("/api/admin/upload")
-async def admin_upload(
+@app.post("/api/admin/events")
+def admin_create_event(payload: dict, token: str = Depends(get_auth_token)):
+    name = payload.get("name", "").strip()
+    slug = re.sub(r"[^a-zA-Z0-9_-]", "-", payload.get("slug", "").strip().lower()).strip("-")
+    if not name or not slug:
+        raise HTTPException(400, "Name and valid slug are required.")
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO events (slug, name, event_type, event_date, location, description, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            slug,
+            name,
+            payload.get("event_type", "Wedding"),
+            payload.get("event_date", ""),
+            payload.get("location", ""),
+            payload.get("description", ""),
+            payload.get("status", "published")
+        ))
+        eid = cursor.lastrowid
+        
+        # Create default album
+        cursor.execute("""
+            INSERT INTO albums (event_id, slug, name, sort_order)
+            VALUES (?, 'highlights', 'Highlights', 1)
+        """, (eid,))
+        
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        raise HTTPException(400, f"Error creating event: {e}")
+        
+    conn.close()
+    
+    # Create event storage folders
+    (PHOTOS / "events" / slug).mkdir(parents=True, exist_ok=True)
+    (DATA / "events" / slug).mkdir(parents=True, exist_ok=True)
+    
+    return {"status": "ok", "slug": slug}
+
+@app.get("/api/admin/events/{slug}")
+def admin_event_workspace(slug: str, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE slug = ?", (slug,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+        
+    cursor.execute("""
+        SELECT a.*, COUNT(p.id) as photo_count
+        FROM albums a
+        LEFT JOIN photos p ON a.id = p.album_id AND p.is_deleted = 0
+        WHERE a.event_id = ?
+        GROUP BY a.id
+        ORDER BY a.sort_order ASC, a.name ASC
+    """, (event["id"],))
+    albums = [dict(row) for row in cursor.fetchall()]
+    
+    cursor.execute("""
+        SELECT id, filename, rel_path, album_id, is_featured, file_size_bytes, created_at
+        FROM photos
+        WHERE event_id = ? AND is_deleted = 0
+        ORDER BY id DESC LIMIT 100
+    """, (event["id"],))
+    recent_photos = [dict(row) for row in cursor.fetchall()]
+    
+    # Get indexed faces count
+    embs, names, _ = get_event_index(slug)
+    conn.close()
+    
+    return {
+        "event": dict(event),
+        "albums": albums,
+        "recent_photos": recent_photos,
+        "indexed_faces": len(embs),
+        "current_task": current_task
+    }
+
+@app.post("/api/admin/events/{slug}/albums")
+def admin_create_album(slug: str, payload: dict, token: str = Depends(get_auth_token)):
+    name = payload.get("name", "").strip()
+    album_slug = re.sub(r"[^a-zA-Z0-9_-]", "-", payload.get("slug", "").strip().lower()).strip("-")
+    if not name or not album_slug:
+        raise HTTPException(400, "Album name and slug are required.")
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM events WHERE slug = ?", (slug,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+        
+    try:
+        cursor.execute("""
+            INSERT INTO albums (event_id, slug, name, sort_order)
+            VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM albums WHERE event_id = ?))
+        """, (event["id"], album_slug, name, event["id"]))
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        raise HTTPException(400, f"Error: {e}")
+        
+    conn.close()
+    
+    # Create folder on disk
+    if slug in {"default", "wedding"}:
+        (PHOTOS / album_slug).mkdir(parents=True, exist_ok=True)
+    else:
+        (PHOTOS / "events" / slug / album_slug).mkdir(parents=True, exist_ok=True)
+        
+    return {"status": "ok", "album_slug": album_slug}
+
+@app.post("/api/admin/events/{slug}/upload")
+async def admin_upload_to_event(
+    slug: str,
     files: list[UploadFile] = File(...),
-    folder: str = Form("uploads"),
+    album_slug: str = Form("highlights"),
     auto_index: bool = Form(True),
     token: str = Depends(get_auth_token)
 ):
-    safe_folder = "".join(c for c in folder.strip() if c.isalnum() or c in "-_") or "uploads"
-    target_dir = PHOTOS / safe_folder
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM events WHERE slug = ?", (slug,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+        
+    eid = event["id"]
+    cursor.execute("SELECT id FROM albums WHERE event_id = ? AND slug = ?", (eid, album_slug))
+    arow = cursor.fetchone()
+    album_id = arow["id"] if arow else None
+    
+    safe_album = "".join(c for c in album_slug.strip() if c.isalnum() or c in "-_") or "highlights"
+    if slug in {"default", "wedding"}:
+        target_dir = PHOTOS / safe_album
+        rel_prefix = safe_album
+    else:
+        target_dir = PHOTOS / "events" / slug / safe_album
+        rel_prefix = f"events/{slug}/{safe_album}"
+        
     target_dir.mkdir(parents=True, exist_ok=True)
     
     saved_count = 0
@@ -293,40 +567,62 @@ async def admin_upload(
                             with z.open(info) as src, open(dest_path, "wb") as dst:
                                 shutil.copyfileobj(src, dst)
                             optimize_photo_inplace(dest_path)
+                            rel_p = f"{rel_prefix}/{sub_name}"
+                            cursor.execute("""
+                                INSERT OR IGNORE INTO photos (event_id, album_id, filename, rel_path, file_size_bytes)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (eid, album_id, sub_name, rel_p, dest_path.stat().st_size))
                             saved_count += 1
             except Exception as e:
-                append_log(f"Error extracting {filename}: {e}")
+                append_log(f"ZIP extraction error: {e}")
         elif ext in valid_exts:
             content = await f.read()
             dest_path = target_dir / filename
             with open(dest_path, "wb") as dst:
                 dst.write(content)
             optimize_photo_inplace(dest_path)
+            rel_p = f"{rel_prefix}/{filename}"
+            cursor.execute("""
+                INSERT OR IGNORE INTO photos (event_id, album_id, filename, rel_path, file_size_bytes)
+                VALUES (?, ?, ?, ?, ?)
+            """, (eid, album_id, filename, rel_p, dest_path.stat().st_size))
             saved_count += 1
             
-    append_log(f"Uploaded {saved_count} photos to '{safe_folder}'.")
+    conn.commit()
+    conn.close()
+    
+    append_log(f"Uploaded {saved_count} photos to event '{slug}', album '{safe_album}'.")
     if auto_index and saved_count > 0 and current_task["status"] != "running":
-        threading.Thread(target=run_indexing_task, daemon=True).start()
+        threading.Thread(target=run_indexing_task, args=(slug,), daemon=True).start()
         
-    return {"status": "ok", "saved_count": saved_count, "folder": safe_folder}
+    return {"status": "ok", "saved_count": saved_count, "album": safe_album}
 
-@app.post("/api/admin/gdrive")
-def admin_gdrive(payload: dict, token: str = Depends(get_auth_token)):
+@app.post("/api/admin/events/{slug}/gdrive")
+def admin_event_gdrive(slug: str, payload: dict, token: str = Depends(get_auth_token)):
     if current_task["status"] == "running":
-        raise HTTPException(409, "A task is already running. Please wait for it to finish.")
+        raise HTTPException(409, "A task is already running.")
     url = payload.get("url", "").strip()
     if not url:
         raise HTTPException(400, "Google Drive URL is required.")
-    folder = payload.get("folder", "").strip() or "gdrive_photos"
-    safe_folder = "".join(c for c in folder if c.isalnum() or c in "-_") or "gdrive_photos"
-    threading.Thread(target=run_gdrive_download, args=(url, safe_folder), daemon=True).start()
-    return {"status": "started", "folder": safe_folder}
+        
+    album_slug = payload.get("album_slug", "").strip() or "gdrive_photos"
+    safe_album = "".join(c for c in album_slug if c.isalnum() or c in "-_") or "gdrive_photos"
+    
+    if slug in {"default", "wedding"}:
+        dest_dir = PHOTOS / safe_album
+        rel_prefix = safe_album
+    else:
+        dest_dir = PHOTOS / "events" / slug / safe_album
+        rel_prefix = f"events/{slug}/{safe_album}"
+        
+    threading.Thread(target=run_gdrive_download, args=(url, dest_dir, rel_prefix, slug), daemon=True).start()
+    return {"status": "started", "album": safe_album}
 
-@app.post("/api/admin/index")
-def admin_trigger_index(token: str = Depends(get_auth_token)):
+@app.post("/api/admin/events/{slug}/index")
+def admin_event_index(slug: str, token: str = Depends(get_auth_token)):
     if current_task["status"] == "running":
-        raise HTTPException(409, "A task is already running. Please wait for it to finish.")
-    threading.Thread(target=run_indexing_task, daemon=True).start()
+        raise HTTPException(409, "A task is already running.")
+    threading.Thread(target=run_indexing_task, args=(slug,), daemon=True).start()
     return {"status": "started"}
 
 @app.get("/api/admin/logs")
@@ -343,8 +639,26 @@ def admin_logs(token: str = Depends(get_auth_token)):
         lines = log_buffer[-100:]
     return {"logs": lines, "task": current_task}
 
+# --- Static & Dynamic HTML Page Handlers ---
+
 @app.get("/admin")
 def admin_page():
     return FileResponse(BASE / "static" / "admin.html")
+
+@app.get("/{slug}")
+def event_landing_page(slug: str):
+    """Serves the event-specific landing page for any valid event slug."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM events WHERE slug = ?", (slug,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return FileResponse(BASE / "static" / "event.html")
+    # If not an event, check if static file exists
+    static_file = BASE / "static" / slug
+    if static_file.exists() and static_file.is_file():
+        return FileResponse(static_file)
+    raise HTTPException(404, "Page not found")
 
 app.mount("/", StaticFiles(directory=BASE / "static", html=True), name="static")

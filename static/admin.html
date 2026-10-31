@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin Portal - Wedding Photo Finder</title>
+<title>MagniWedding - Central Admin</title>
 <style>
   :root {
     --bg: #f4f7f5; --ink: #14231e; --muted: #5a6b64; --line: #d5ded9;
@@ -37,68 +37,82 @@
     padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.88rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600;
   }
   .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-  .container { max-width: 1000px; width: 100%; margin: 1.5rem auto 3rem; padding: 0 1rem; }
+  .container { max-width: 1060px; width: 100%; margin: 1.5rem auto 3rem; padding: 0 1rem; }
 
-  /* Login Card */
-  .auth-wrap {
-    min-height: calc(85vh - 70px); display: flex; align-items: center; justify-content: center;
-  }
+  /* Login */
+  .auth-wrap { min-height: calc(85vh - 70px); display: flex; align-items: center; justify-content: center; }
   .login-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     padding: 2.2rem; max-width: 420px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,0.06);
   }
   .login-card h1 { font-size: 1.45rem; font-weight: 700; margin-bottom: 0.5rem; }
   .login-card p { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.5rem; }
-  
-  /* Form Inputs with :user-invalid */
-  .field { margin-bottom: 1.25rem; position: relative; }
+
+  /* Forms */
+  .field { margin-bottom: 1.15rem; position: relative; }
   .field label { display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; }
   .field .hint { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 0.35rem; }
-  input[type="password"], input[type="text"] {
-    width: 100%; padding: 0.75rem 0.9rem; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--bg); color: var(--ink); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, background-color 0.15s;
+  input[type="password"], input[type="text"], select, textarea {
+    width: 100%; padding: 0.7rem 0.85rem; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font-size: 0.92rem; font-family: inherit;
   }
-  input[type="password"]:focus, input[type="text"]:focus {
-    outline: none; border-color: var(--accent);
-  }
-  input:user-invalid {
-    border-color: var(--err); background-color: var(--err-bg);
-  }
-  input:user-valid {
-    border-color: var(--success);
-  }
-  .error-msg {
-    display: none; color: var(--err); font-size: 0.82rem; margin-top: 0.3rem;
-  }
-  input:user-invalid + .error-msg { display: block; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 
   .btn-primary {
     background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px;
-    padding: 0.75rem 1.4rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;
-    transition: background 0.15s, opacity 0.15s;
+    padding: 0.65rem 1.25rem; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    transition: background 0.15s; text-decoration: none;
   }
   .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .alert {
-    padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.88rem; margin-top: 1rem; display: none;
-  }
-  .alert.show { display: block; }
-  .alert-err { background: var(--err-bg); color: var(--err); border: 1px solid var(--err); }
-  .alert-ok { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
 
-  /* Dashboard Cards */
+  /* Metrics Grid */
   .grid-metrics {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
   }
   .stat-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem;
   }
-  .stat-label { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
-  .stat-val { font-size: 2.1rem; font-weight: 700; margin: 0.3rem 0; line-height: 1; }
+  .stat-label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+  .stat-val { font-size: 2rem; font-weight: 700; margin: 0.2rem 0; line-height: 1.1; }
   .stat-sub { font-size: 0.82rem; color: var(--muted); }
 
-  /* Section Card */
+  /* Event Grid Cards */
+  .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1.2rem; }
+  .event-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: transform 0.15s, border-color 0.15s;
+  }
+  .event-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .event-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .event-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .event-slug { font-size: 0.82rem; color: var(--accent); font-family: monospace; }
+  .event-meta { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0; }
+  .event-badges { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+  .badge {
+    padding: 0.18rem 0.55rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700;
+  }
+  .badge-published { background: var(--success-bg); color: var(--success); }
+  .badge-draft { background: var(--warn-bg); color: var(--warn); }
+
+  /* Workspace */
+  .workspace-head {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+    gap: 1rem; margin-bottom: 1.25rem;
+  }
+  .breadcrumb { font-size: 0.9rem; color: var(--muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+  .breadcrumb:hover { color: var(--accent); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; }
+  .tab-btn {
+    background: transparent; border: 0; color: var(--muted); font-size: 0.92rem; font-weight: 600;
+    padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer;
+  }
+  .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
+
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
   }
@@ -109,44 +123,36 @@
   .card-head h2 { font-size: 1.05rem; font-weight: 700; }
   .card-body { padding: 1.25rem; }
 
-  /* Tabs */
-  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); padding-bottom: 0.6rem; }
-  .tab-btn {
-    background: transparent; border: 0; color: var(--muted); font-size: 0.92rem; font-weight: 600;
-    padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem;
   }
-  .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
-
-  /* Drag Drop Zone */
-  .drop-zone {
-    border: 2px dashed var(--line); border-radius: 10px; padding: 2rem 1rem;
-    text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  .modal-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    max-width: 500px; width: 100%; padding: 1.75rem; position: relative;
   }
-  .drop-zone.dragover { border-color: var(--accent); background: rgba(15,92,77,0.04); }
-  .drop-zone input { display: none; }
-  .drop-icon { font-size: 2.2rem; }
+  .modal-close {
+    position: absolute; top: 1rem; right: 1rem; background: transparent; border: 0;
+    font-size: 1.4rem; color: var(--muted); cursor: pointer;
+  }
 
-  /* Terminal Console */
+  /* Console */
   .console {
     background: #0f1614; color: #a4e5d5; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     font-size: 0.82rem; border-radius: 8px; padding: 0.9rem; height: 260px; overflow-y: auto;
     white-space: pre-wrap; word-break: break-word; line-height: 1.45; border: 1px solid #1f2e28;
   }
 
-  .tag {
-    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem;
-    border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+  .drop-zone {
+    border: 2px dashed var(--line); border-radius: 10px; padding: 2rem 1rem;
+    text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
   }
-  .tag-idle { background: var(--success-bg); color: var(--success); }
-  .tag-busy { background: var(--warn-bg); color: var(--warn); }
+  .drop-zone:hover { border-color: var(--accent); }
+  .drop-zone input { display: none; }
 
-  .folder-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
-  .folder-item {
-    display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.8rem;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.88rem;
-  }
-  .folder-item code { font-weight: 600; }
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.8rem; }
+  .photo-grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; background: var(--line); }
 
   [hidden] { display: none !important; }
 </style>
@@ -155,13 +161,13 @@
 
 <header>
   <div style="display:flex;align-items:center;gap:0.8rem;">
-    <a href="/" class="brand">
-      📸 Wedding Photos
+    <a href="/admin" class="brand">
+      📸 MagniWedding
     </a>
-    <span class="brand-badge">Admin</span>
+    <span class="brand-badge">Central Admin</span>
   </div>
   <div class="header-actions">
-    <a href="/" class="btn-outline" target="_blank">View Site ↗</a>
+    <a href="/" class="btn-outline" target="_blank" id="viewPublicLink">View Site ↗</a>
     <button id="logoutBtn" class="btn-outline" hidden>Sign Out</button>
   </div>
 </header>
@@ -170,172 +176,218 @@
 <div id="authView" class="container auth-wrap">
   <div class="login-card">
     <div style="font-size:2.2rem;margin-bottom:0.6rem;">🔐</div>
-    <h1>Admin Access</h1>
-    <p>Enter the security key to manage wedding photos, imports, and face indexing.</p>
+    <h1>MagniWedding Admin</h1>
+    <p>Enter the security key to manage all events, albums, and facial recognition models.</p>
     
     <form id="loginForm">
       <div class="field">
         <label for="adminKey">Security Key</label>
-        <span id="key-hint" class="hint">Secret passkey provided by the administrator</span>
-        <input
-          type="password"
-          id="adminKey"
-          name="adminKey"
-          required
-          autocomplete="current-password"
-          placeholder="••••••••••••"
-          aria-describedby="key-hint"
-        >
-        <div class="error-msg">Please enter a valid key.</div>
+        <input type="password" id="adminKey" required placeholder="••••••••••••">
       </div>
-      <button type="submit" id="loginBtn" class="btn-primary">Unlock Dashboard</button>
-      <div id="loginAlert" class="alert alert-err" role="alert"></div>
+      <button type="submit" id="loginBtn" class="btn-primary" style="width:100%;">Unlock Central Admin</button>
+      <div id="loginAlert" style="margin-top:0.8rem;color:var(--err);font-size:0.88rem;" hidden></div>
     </form>
   </div>
 </div>
 
-<!-- Main Admin Dashboard View -->
-<main id="dashView" class="container" hidden>
-  
-  <!-- Metrics -->
+<!-- Main Multi-Event Overview -->
+<main id="overviewView" class="container" hidden>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <h1 style="font-size:1.8rem;font-weight:700;">Events Management</h1>
+      <p style="color:var(--muted);font-size:0.92rem;">Manage weddings, programs, and photo discovery from one dashboard.</p>
+    </div>
+    <button class="btn-primary" id="openNewEventModalBtn">+ Create New Event</button>
+  </div>
+
+  <!-- Global Metrics -->
   <div class="grid-metrics">
     <div class="stat-card">
-      <div class="stat-label">Total Photos</div>
-      <div class="stat-val" id="statPhotos">0</div>
-      <div class="stat-sub" id="statFolders">0 subfolders in /photos</div>
+      <div class="stat-label">Total Events</div>
+      <div class="stat-val" id="metricEvents">0</div>
+      <div class="stat-sub"><span id="metricActiveEvents">0</span> published</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Faces Indexed</div>
-      <div class="stat-val" id="statFaces" style="color:var(--accent);">0</div>
-      <div class="stat-sub" id="statIndexedPhotos">0 photos indexed</div>
+      <div class="stat-label">Total Photographs</div>
+      <div class="stat-val" id="metricPhotos">0</div>
+      <div class="stat-sub">Across all event albums</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">System State</div>
-      <div style="margin: 0.5rem 0;">
-        <span id="taskStatusTag" class="tag tag-idle">Ready</span>
-      </div>
-      <div class="stat-sub" id="taskMessage">All photos ready for matching</div>
+      <div class="stat-label">Albums & Programs</div>
+      <div class="stat-val" id="metricAlbums">0</div>
+      <div class="stat-sub">Ceremonies, Receptions, etc.</div>
     </div>
   </div>
 
-  <!-- Upload & Import Card -->
-  <div class="card">
-    <div class="card-head">
-      <h2>Add Photos to Library</h2>
-      <span style="font-size:0.8rem;color:var(--muted);">Files save directly to VPS storage</span>
-    </div>
-    <div class="card-body">
-      <div class="tabs">
-        <button class="tab-btn active" id="tabUploadBtn">Direct Upload (Photos & ZIP)</button>
-        <button class="tab-btn" id="tabGdriveBtn">Google Drive Link Import</button>
-      </div>
-
-      <!-- Tab 1: Direct File & ZIP Upload -->
-      <div id="tabUpload">
-        <div style="margin-bottom:1rem;display:flex;gap:1rem;flex-wrap:wrap;">
-          <div style="flex:1;min-width:220px;">
-            <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.3rem;" for="destFolder">
-              Destination Subfolder
-            </label>
-            <input type="text" id="destFolder" value="29-10-26" placeholder="e.g. 29-10-26 or reception">
-          </div>
-          <div style="display:flex;align-items:flex-end;padding-bottom:0.5rem;">
-            <label style="font-size:0.85rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
-              <input type="checkbox" id="autoIndex" checked style="accent-color:var(--accent);">
-              Auto-run face indexing after upload
-            </label>
-          </div>
-        </div>
-
-        <div class="drop-zone" id="dropZone">
-          <input type="file" id="fileInput" multiple accept="image/*,.zip">
-          <div class="drop-icon">📁</div>
-          <strong style="font-size:1rem;">Click to choose photos or a .ZIP archive</strong>
-          <span style="color:var(--muted);font-size:0.84rem;">Supports JPG, PNG, WEBP, and .ZIP archives (auto-extracted)</span>
-        </div>
-
-        <div id="uploadStatus" class="alert alert-ok" style="margin-top:1rem;"></div>
-      </div>
-
-      <!-- Tab 2: Google Drive Import -->
-      <div id="tabGdrive" hidden>
-        <div class="field">
-          <label for="gdriveUrl">Google Drive Shared Link</label>
-          <span class="hint">Public or shared link with "Anyone with the link can view" enabled</span>
-          <input type="text" id="gdriveUrl" placeholder="https://drive.google.com/drive/folders/...">
-        </div>
-        <div class="field">
-          <label for="gdriveFolder">Save Into Folder Name</label>
-          <input type="text" id="gdriveFolder" value="wedding_gdrive" placeholder="e.g. wedding_gdrive">
-        </div>
-        <button type="button" id="startGdriveBtn" class="btn-primary" style="max-width:260px;">
-          ⬇️ Import from Google Drive
-        </button>
-        <div id="gdriveAlert" class="alert alert-ok" style="margin-top:1rem;"></div>
-      </div>
-    </div>
+  <!-- Events Grid -->
+  <div class="events-grid" id="eventsGrid">
+    <div style="color:var(--muted);">Loading events...</div>
   </div>
-
-  <!-- Face Indexer & Live Logs Card -->
-  <div class="card">
-    <div class="card-head">
-      <div style="display:flex;align-items:center;gap:0.8rem;">
-        <h2>Face Indexer & Live Logs</h2>
-      </div>
-      <div style="display:flex;gap:0.5rem;">
-        <button id="triggerIndexBtn" class="btn-primary" style="padding:0.45rem 1rem;font-size:0.85rem;width:auto;">
-          ⚡ Run Face Indexing
-        </button>
-        <button id="refreshLogsBtn" class="btn-outline" style="padding:0.45rem 0.8rem;font-size:0.85rem;">
-          ↻ Refresh Logs
-        </button>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="console" id="logConsole">Connecting to log stream...</div>
-    </div>
-  </div>
-
-  <!-- Photos Folders Card -->
-  <div class="card">
-    <div class="card-head">
-      <h2>Storage Directory Breakdown</h2>
-      <span style="font-size:0.82rem;color:var(--muted);">Host path: <code>/opt/photo-finder-storage/photos</code></span>
-    </div>
-    <div class="card-body">
-      <ul class="folder-list" id="folderList">
-        <li style="color:var(--muted);font-size:0.9rem;">Loading folders...</li>
-      </ul>
-    </div>
-  </div>
-
 </main>
+
+<!-- Individual Event Workspace View -->
+<main id="workspaceView" class="container" hidden>
+  <div class="workspace-head">
+    <div>
+      <div class="breadcrumb" id="backToEventsBtn">← Back to All Events</div>
+      <h1 style="font-size:1.8rem;font-weight:700;margin-top:0.3rem;" id="wsEventName">Event Workspace</h1>
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-top:0.2rem;">
+        <a id="wsEventUrl" href="#" target="_blank" style="font-size:0.85rem;color:var(--accent);font-family:monospace;text-decoration:none;"></a>
+        <span class="badge badge-published" id="wsEventStatus">Published</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.6rem;">
+      <button class="btn-primary" id="wsNewAlbumBtn">+ New Album</button>
+      <button class="btn-outline" id="wsIndexBtn">⚡ Index Faces</button>
+    </div>
+  </div>
+
+  <!-- Workspace Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabAlbumsBtn">Albums & Folders</button>
+    <button class="tab-btn" id="tabUploadBtn">Upload Photos</button>
+    <button class="tab-btn" id="tabGdriveBtn">Google Drive Import</button>
+    <button class="tab-btn" id="tabLogsBtn">Face Indexer Logs</button>
+  </div>
+
+  <!-- Tab 1: Albums -->
+  <div id="tabAlbumsContent">
+    <div class="events-grid" id="albumsGrid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));"></div>
+  </div>
+
+  <!-- Tab 2: Upload -->
+  <div id="tabUploadContent" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2>Upload Photos or .ZIP</h2>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label for="uploadAlbumSelect">Select Album</label>
+          <select id="uploadAlbumSelect"></select>
+        </div>
+        <div class="drop-zone" id="wsDropZone">
+          <input type="file" id="wsFileInput" multiple accept="image/*,.zip">
+          <div style="font-size:2.2rem;">📁</div>
+          <strong>Click to choose images or a .ZIP archive</strong>
+          <span style="color:var(--muted);font-size:0.84rem;">Auto-optimizes images and extracts ZIP archives</span>
+        </div>
+        <div id="wsUploadStatus" style="margin-top:1rem;font-size:0.9rem;font-weight:600;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Google Drive -->
+  <div id="tabGdriveContent" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2>Import from Google Drive (5 TB Offload)</h2>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label for="gdriveAlbumSelect">Target Album</label>
+          <select id="gdriveAlbumSelect"></select>
+        </div>
+        <div class="field">
+          <label for="wsGdriveUrl">Google Drive Shared Folder Link</label>
+          <input type="text" id="wsGdriveUrl" placeholder="https://drive.google.com/drive/folders/...">
+        </div>
+        <button class="btn-primary" id="startWsGdriveBtn">Start Import & Face Indexing</button>
+        <div id="wsGdriveStatus" style="margin-top:1rem;font-size:0.9rem;font-weight:600;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Logs -->
+  <div id="tabLogsContent" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2>Live Indexing Logs</h2>
+        <button class="btn-outline" id="refreshLogsBtn">↻ Refresh</button>
+      </div>
+      <div class="card-body">
+        <div class="console" id="wsLogConsole">Connecting to log stream...</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Create Event Modal -->
+<div id="newEventModal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <button class="modal-close" id="closeNewEventModalBtn">&times;</button>
+    <h2 style="font-size:1.35rem;font-weight:700;margin-bottom:1rem;">Create New Event</h2>
+    <form id="newEventForm">
+      <div class="field">
+        <label for="evName">Event Name *</label>
+        <input type="text" id="evName" placeholder="e.g. Rahul & Priya Wedding" required>
+      </div>
+      <div class="field">
+        <label for="evSlug">URL Slug * (Unique)</label>
+        <input type="text" id="evSlug" placeholder="e.g. rahul-priya" required pattern="[a-zA-Z0-9_-]+">
+        <span class="hint">Will be available at wedding.magnidigitech.com/&lt;slug&gt;</span>
+      </div>
+      <div class="field">
+        <label for="evType">Event Type</label>
+        <select id="evType">
+          <option value="Wedding">Wedding</option>
+          <option value="Reception">Reception</option>
+          <option value="Engagement">Engagement</option>
+          <option value="Corporate">Corporate Event</option>
+          <option value="Birthday">Birthday</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="evDate">Event Date</label>
+        <input type="text" id="evDate" placeholder="e.g. 2026-11-15">
+      </div>
+      <div class="field">
+        <label for="evDesc">Description</label>
+        <textarea id="evDesc" rows="2" placeholder="Brief event description"></textarea>
+      </div>
+      <button type="submit" class="btn-primary" style="width:100%;margin-top:0.5rem;">Create Event</button>
+    </form>
+  </div>
+</div>
+
+<!-- Create Album Modal -->
+<div id="newAlbumModal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <button class="modal-close" id="closeNewAlbumModalBtn">&times;</button>
+    <h2 style="font-size:1.35rem;font-weight:700;margin-bottom:1rem;">Create New Album</h2>
+    <form id="newAlbumForm">
+      <div class="field">
+        <label for="alName">Album Name *</label>
+        <input type="text" id="alName" placeholder="e.g. Haldi, Mehendi, Reception" required>
+      </div>
+      <div class="field">
+        <label for="alSlug">Album Slug *</label>
+        <input type="text" id="alSlug" placeholder="e.g. haldi" required pattern="[a-zA-Z0-9_-]+">
+      </div>
+      <button type="submit" class="btn-primary" style="width:100%;margin-top:0.5rem;">Create Album</button>
+    </form>
+  </div>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
 let authToken = localStorage.getItem('admin_token') || '';
+let currentEventSlug = null;
 
-function setAlert(el, msg, isErr = false) {
-  el.textContent = msg;
-  el.className = 'alert show ' + (isErr ? 'alert-err' : 'alert-ok');
-}
-
-// Headers helper
 function authHeaders(extra = {}) {
   return { 'X-Admin-Token': authToken, ...extra };
 }
 
-// Check session on load
 async function checkAuth() {
   if (!authToken) {
     showLogin();
     return;
   }
   try {
-    const res = await fetch('/api/admin/status', { headers: authHeaders() });
+    const res = await fetch('/api/admin/overview', { headers: authHeaders() });
     if (res.ok) {
       const data = await res.json();
-      showDashboard(data);
+      showOverview(data);
     } else {
       localStorage.removeItem('admin_token');
       authToken = '';
@@ -348,25 +400,25 @@ async function checkAuth() {
 
 function showLogin() {
   $('authView').hidden = false;
-  $('dashView').hidden = true;
+  $('overviewView').hidden = true;
+  $('workspaceView').hidden = true;
   $('logoutBtn').hidden = true;
 }
 
-function showDashboard(initialData) {
+function showOverview(data) {
   $('authView').hidden = true;
-  $('dashView').hidden = false;
+  $('overviewView').hidden = false;
+  $('workspaceView').hidden = true;
   $('logoutBtn').hidden = false;
-  renderStatus(initialData);
-  fetchLogs();
+  renderOverview(data);
 }
 
-// Login submission
+// Login
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const key = $('adminKey').value.trim();
   const alertEl = $('loginAlert');
-  alertEl.className = 'alert';
-  $('loginBtn').disabled = true;
+  alertEl.hidden = true;
 
   try {
     const res = await fetch('/api/admin/login', {
@@ -376,208 +428,261 @@ $('loginForm').addEventListener('submit', async (e) => {
     });
     const j = await res.json();
     if (!res.ok) throw new Error(j.detail || 'Login failed');
-    
     authToken = j.token;
     localStorage.setItem('admin_token', authToken);
     checkAuth();
   } catch (err) {
-    setAlert(alertEl, err.message, true);
-  } finally {
-    $('loginBtn').disabled = false;
+    alertEl.textContent = err.message;
+    alertEl.hidden = false;
   }
 });
 
-// Logout
-$('logoutBtn').addEventListener('click', async () => {
-  try {
-    await fetch('/api/admin/logout', { method: 'POST', headers: authHeaders() });
-  } catch (e) {}
+$('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('admin_token');
   authToken = '';
   showLogin();
 });
 
-// Render dashboard stats
-function renderStatus(data) {
-  if (!data) return;
-  $('statPhotos').textContent = data.total_photos || 0;
-  $('statFaces').textContent = data.indexed_faces || 0;
-  $('statIndexedPhotos').textContent = `${data.indexed_photos || 0} photos indexed`;
-  $('statFolders').textContent = `${data.folders?.length || 0} subfolders in /photos`;
+// Render Overview
+function renderOverview(data) {
+  $('metricEvents').textContent = data.metrics.total_events;
+  $('metricActiveEvents').textContent = data.metrics.active_events;
+  $('metricPhotos').textContent = data.metrics.total_photos;
+  $('metricAlbums').textContent = data.metrics.total_albums;
 
-  const task = data.current_task || {};
-  const isBusy = task.status === 'running';
-  $('taskStatusTag').textContent = isBusy ? 'Busy' : 'Ready';
-  $('taskStatusTag').className = 'tag ' + (isBusy ? 'tag-busy' : 'tag-idle');
-  $('taskMessage').textContent = task.message || (isBusy ? 'Processing in background...' : 'Ready');
-  $('triggerIndexBtn').disabled = isBusy;
+  const grid = $('eventsGrid');
+  grid.replaceChildren();
 
-  // Render folder breakdown
-  const list = $('folderList');
-  list.replaceChildren();
-  if (!data.folders || data.folders.length === 0) {
-    const li = document.createElement('li');
-    li.textContent = 'No photos uploaded yet.';
-    li.style.color = 'var(--muted)';
-    list.append(li);
-  } else {
-    for (const f of data.folders) {
-      const li = document.createElement('li');
-      li.className = 'folder-item';
-      li.innerHTML = `<span>📁 <code>${f.name}</code></span><span style="font-weight:600;">${f.count} photos</span>`;
-      list.append(li);
-    }
+  for (const ev of data.events) {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.innerHTML = `
+      <div>
+        <div class="event-header">
+          <div class="event-name">${ev.name}</div>
+          <span class="badge ${ev.status === 'published' ? 'badge-published' : 'badge-draft'}">${ev.status}</span>
+        </div>
+        <div class="event-slug">/${ev.slug}</div>
+        <div class="event-meta">${ev.event_type} • ${ev.event_date || 'Date unset'} • ${ev.location || 'Location unset'}</div>
+        <div style="font-size:0.85rem;font-weight:600;margin-top:0.4rem;">
+          📷 ${ev.photo_count || 0} photos in ${ev.album_count || 0} albums
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+        <button class="btn-primary" style="flex:1;" onclick="openWorkspace('${ev.slug}')">Open Workspace →</button>
+        <a class="btn-outline" href="/${ev.slug}" target="_blank">View ↗</a>
+      </div>
+    `;
+    grid.append(card);
   }
 }
 
-// Polling status and logs
-async function fetchStatus() {
-  if (!authToken) return;
+// Open Event Workspace
+window.openWorkspace = async function(slug) {
+  currentEventSlug = slug;
   try {
-    const res = await fetch('/api/admin/status', { headers: authHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      renderStatus(data);
-    }
-  } catch (e) {}
-}
-
-async function fetchLogs() {
-  if (!authToken) return;
-  try {
-    const res = await fetch('/api/admin/logs', { headers: authHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      const consoleEl = $('logConsole');
-      if (data.logs && data.logs.length > 0) {
-        consoleEl.textContent = data.logs.join('\n');
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      }
-    }
-  } catch (e) {}
-}
-
-setInterval(() => {
-  if (authToken && !$('dashView').hidden) {
-    fetchStatus();
-    fetchLogs();
+    const res = await fetch(`/api/admin/events/${slug}`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed to load event');
+    const data = await res.json();
+    renderWorkspace(data);
+  } catch (err) {
+    alert(err.message);
   }
-}, 3000);
+};
 
-// Tab switching
-$('tabUploadBtn').addEventListener('click', () => {
-  $('tabUploadBtn').classList.add('active');
-  $('tabGdriveBtn').classList.remove('active');
-  $('tabUpload').hidden = false;
-  $('tabGdrive').hidden = true;
+function renderWorkspace(data) {
+  const ev = data.event;
+  $('overviewView').hidden = true;
+  $('workspaceView').hidden = false;
+
+  $('wsEventName').textContent = ev.name;
+  $('wsEventUrl').textContent = `wedding.magnidigitech.com/${ev.slug}`;
+  $('wsEventUrl').href = `/${ev.slug}`;
+  $('wsEventStatus').textContent = ev.status;
+
+  // Render albums
+  const grid = $('albumsGrid');
+  grid.replaceChildren();
+  const select1 = $('uploadAlbumSelect');
+  const select2 = $('gdriveAlbumSelect');
+  select1.replaceChildren();
+  select2.replaceChildren();
+
+  for (const a of data.albums) {
+    const div = document.createElement('div');
+    div.className = 'event-card';
+    div.innerHTML = `
+      <div style="font-size:1.1rem;font-weight:700;">📁 ${a.name}</div>
+      <div style="font-size:0.82rem;color:var(--muted);">${a.photo_count || 0} photographs</div>
+    `;
+    grid.append(div);
+
+    const opt1 = new Option(a.name, a.slug);
+    const opt2 = new Option(a.name, a.slug);
+    select1.add(opt1);
+    select2.add(opt2);
+  }
+}
+
+$('backToEventsBtn').addEventListener('click', () => {
+  $('workspaceView').hidden = true;
+  checkAuth();
 });
-$('tabGdriveBtn').addEventListener('click', () => {
-  $('tabGdriveBtn').classList.add('active');
-  $('tabUploadBtn').classList.remove('active');
-  $('tabUpload').hidden = true;
-  $('tabGdrive').hidden = false;
+
+// Workspace Tabs
+const wsTabs = [
+  { btn: 'tabAlbumsBtn', content: 'tabAlbumsContent' },
+  { btn: 'tabUploadBtn', content: 'tabUploadContent' },
+  { btn: 'tabGdriveBtn', content: 'tabGdriveContent' },
+  { btn: 'tabLogsBtn', content: 'tabLogsContent' }
+];
+
+wsTabs.forEach(t => {
+  $(t.btn).addEventListener('click', () => {
+    wsTabs.forEach(o => {
+      $(o.btn).classList.remove('active');
+      $(o.content).hidden = true;
+    });
+    $(t.btn).classList.add('active');
+    $(t.content).hidden = false;
+    if (t.btn === 'tabLogsBtn') fetchLogs();
+  });
 });
 
-// Direct Upload Drag & Drop
-const dropZone = $('dropZone');
-const fileInput = $('fileInput');
+// Modal Toggles
+$('openNewEventModalBtn').addEventListener('click', () => $('newEventModal').hidden = false);
+$('closeNewEventModalBtn').addEventListener('click', () => $('newEventModal').hidden = true);
+$('wsNewAlbumBtn').addEventListener('click', () => $('newAlbumModal').hidden = false);
+$('closeNewAlbumModalBtn').addEventListener('click', () => $('newAlbumModal').hidden = true);
 
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', (e) => {
+// Create Event
+$('newEventForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  dropZone.classList.remove('dragover');
-  if (e.dataTransfer.files.length > 0) {
-    handleFileUpload(e.dataTransfer.files);
-  }
-});
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length > 0) {
-    handleFileUpload(fileInput.files);
+  const payload = {
+    name: $('evName').value.trim(),
+    slug: $('evSlug').value.trim(),
+    event_type: $('evType').value,
+    event_date: $('evDate').value.trim(),
+    description: $('evDesc').value.trim()
+  };
+  try {
+    const res = await fetch('/api/admin/events', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Failed to create event');
+    $('newEventModal').hidden = true;
+    $('newEventForm').reset();
+    checkAuth();
+  } catch (err) {
+    alert(err.message);
   }
 });
 
-async function handleFileUpload(files) {
-  const statusEl = $('uploadStatus');
-  const folder = $('destFolder').value.trim() || 'uploads';
-  const autoIndex = $('autoIndex').checked;
-  setAlert(statusEl, `Uploading ${files.length} file(s)... please wait.`);
+// Create Album
+$('newAlbumForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    name: $('alName').value.trim(),
+    slug: $('alSlug').value.trim()
+  };
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/albums`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload)
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Failed to create album');
+    $('newAlbumModal').hidden = true;
+    $('newAlbumForm').reset();
+    openWorkspace(currentEventSlug);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// File Upload
+$('wsDropZone').addEventListener('click', () => $('wsFileInput').click());
+$('wsFileInput').addEventListener('change', async () => {
+  const files = $('wsFileInput').files;
+  if (!files || files.length === 0) return;
+
+  const albumSlug = $('uploadAlbumSelect').value;
+  const statusEl = $('wsUploadStatus');
+  statusEl.textContent = `Uploading ${files.length} file(s)...`;
 
   const fd = new FormData();
-  fd.append('folder', folder);
-  fd.append('auto_index', autoIndex ? 'true' : 'false');
-  for (const f of files) {
-    fd.append('files', f);
-  }
+  fd.append('album_slug', albumSlug);
+  for (const f of files) fd.append('files', f);
 
   try {
-    const res = await fetch('/api/admin/upload', {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/upload`, {
       method: 'POST',
       headers: authHeaders(),
       body: fd
     });
     const j = await res.json();
     if (!res.ok) throw new Error(j.detail || 'Upload failed');
-    setAlert(statusEl, `Successfully processed ${j.saved_count} photos into folder '${j.folder}'. ${autoIndex ? 'Indexing started!' : ''}`);
-    fetchStatus();
-    fetchLogs();
+    statusEl.textContent = `Successfully saved ${j.saved_count} photos. Face indexing started in background!`;
+    openWorkspace(currentEventSlug);
   } catch (err) {
-    setAlert(statusEl, err.message, true);
-  } finally {
-    fileInput.value = '';
-  }
-}
-
-// Google Drive Import
-$('startGdriveBtn').addEventListener('click', async () => {
-  const url = $('gdriveUrl').value.trim();
-  const folder = $('gdriveFolder').value.trim() || 'gdrive_photos';
-  const alertEl = $('gdriveAlert');
-  if (!url) {
-    setAlert(alertEl, 'Please enter a valid Google Drive URL.', true);
-    return;
-  }
-  setAlert(alertEl, 'Starting Google Drive import... check logs below.');
-  $('startGdriveBtn').disabled = true;
-
-  try {
-    const res = await fetch('/api/admin/gdrive', {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ url, folder })
-    });
-    const j = await res.json();
-    if (!res.ok) throw new Error(j.detail || 'Failed to start import');
-    setAlert(alertEl, `Import started into folder '${j.folder}'. Facial indexing will run automatically once download completes!`);
-    fetchStatus();
-    fetchLogs();
-  } catch (err) {
-    setAlert(alertEl, err.message, true);
-  } finally {
-    $('startGdriveBtn').disabled = false;
+    statusEl.textContent = `Error: ${err.message}`;
   }
 });
 
-// Trigger indexing manually
-$('triggerIndexBtn').addEventListener('click', async () => {
-  $('triggerIndexBtn').disabled = true;
+// Google Drive Import
+$('startWsGdriveBtn').addEventListener('click', async () => {
+  const url = $('wsGdriveUrl').value.trim();
+  const albumSlug = $('gdriveAlbumSelect').value;
+  const statusEl = $('wsGdriveStatus');
+  if (!url) return alert('Please enter Google Drive URL');
+
+  statusEl.textContent = 'Import started! Check logs tab for progress...';
   try {
-    const res = await fetch('/api/admin/index', { method: 'POST', headers: authHeaders() });
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/gdrive`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ url, album_slug: albumSlug })
+    });
     const j = await res.json();
-    if (!res.ok) throw new Error(j.detail || 'Failed to trigger indexing');
-    fetchStatus();
-    fetchLogs();
+    if (!res.ok) throw new Error(j.detail || 'Failed');
+    statusEl.textContent = 'Download active in background. Thumbnails and facial vectors will generate automatically.';
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+});
+
+// Trigger Index
+$('wsIndexBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch(`/api/admin/events/${currentEventSlug}/index`, {
+      method: 'POST',
+      headers: authHeaders()
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Failed');
+    alert(`Face indexing started for event '${currentEventSlug}'!`);
   } catch (err) {
     alert(err.message);
   }
 });
 
+async function fetchLogs() {
+  try {
+    const res = await fetch('/api/admin/logs', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      $('wsLogConsole').textContent = (data.logs || []).join('\n');
+    }
+  } catch (e) {}
+}
+
 $('refreshLogsBtn').addEventListener('click', fetchLogs);
 
-// Initialize on page load
 checkAuth();
 </script>
 </body>
 </html>
-
