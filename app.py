@@ -1,4 +1,5 @@
-import os, sys, threading, subprocess, secrets, shutil, zipfile, io, re
+import os, sys, threading, subprocess, secrets, shutil, zipfile, io, re, time
+from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageOps
 import cv2
@@ -11,7 +12,8 @@ import json
 
 from database import (
     get_db, init_db, migrate_existing_data,
-    cluster_and_sync_people, list_people_for_event, get_person_photos
+    cluster_and_sync_people, list_people_for_event, get_person_photos,
+    create_task_record, update_task_progress, get_latest_task, list_task_history, get_task_by_id
 )
 
 BASE = Path(__file__).parent
@@ -111,14 +113,27 @@ def get_auth_token(req: Request) -> str:
         raise HTTPException(401, "Unauthorized. Please log in with the admin key.")
     return token
 
-def run_indexing_task(event_slug="wedding"):
+def run_indexing_task(event_slug="wedding", task_id=None):
     global current_task
+    owns_task = False
+    if not task_id:
+        owns_task = True
+        task_id = f"idx_{secrets.token_hex(4)}"
+        create_task_record(task_id, "face_index", event_slug, "All Albums", "Local Storage")
+
     with task_lock:
+        current_task["task_id"] = task_id
         current_task["status"] = "running"
         current_task["type"] = "indexing"
         current_task["event"] = event_slug
+        current_task["progress_pct"] = 80 if not owns_task else 20
         current_task["message"] = f"Face indexing for event '{event_slug}' in progress..."
-    append_log(f"--- Starting Face Indexing for event '{event_slug}' ---")
+
+    append_log(f"[{datetime.now().strftime('%H:%M:%S')}] Starting face indexing for event '{event_slug}'")
+    update_task_progress(task_id, progress_pct=80 if not owns_task else 20,
+                         current_step=f"Analyzing faces with InsightFace in '{event_slug}'...",
+                         log_line=f"Face indexing started for event '{event_slug}'")
+
     try:
         proc = subprocess.Popen(
             [sys.executable, str(BASE / "index_photos.py"), "--event", event_slug],
@@ -129,34 +144,61 @@ def run_indexing_task(event_slug="wedding"):
             cwd=str(BASE)
         )
         for line in proc.stdout:
-            append_log(line.rstrip())
+            txt = line.rstrip()
+            append_log(txt)
+            update_task_progress(task_id, log_line=txt)
+
         proc.wait()
         get_event_index(event_slug)
+        cluster_and_sync_people(event_slug)
         append_log(f"--- Face Indexing for '{event_slug}' Completed (exit code {proc.returncode}) ---")
-        with task_lock:
-            current_task["status"] = "idle"
-            current_task["type"] = None
-            current_task["event"] = None
-            current_task["message"] = f"Indexing finished successfully for event '{event_slug}'."
+        
+        if owns_task:
+            with task_lock:
+                current_task["status"] = "completed"
+                current_task["progress_pct"] = 100
+                current_task["message"] = f"Face indexing completed successfully for '{event_slug}'."
+            update_task_progress(task_id, progress_pct=100, status="completed",
+                                 current_step=f"Face indexing & clustering completed successfully for '{event_slug}'.",
+                                 log_line="Face indexing and clustering finished successfully.")
     except Exception as e:
         append_log(f"Indexing error: {e}")
         with task_lock:
             current_task["status"] = "error"
-            current_task["type"] = None
-            current_task["event"] = None
             current_task["message"] = f"Error: {e}"
+        update_task_progress(task_id, status="failed", current_step=f"Error: {e}", log_line=f"ERROR: {e}")
 
 def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: str):
     global current_task, drive_map
+    task_id = f"gdrive_{secrets.token_hex(4)}"
+    create_task_record(task_id, "gdrive_ingest", event_slug, dest_dir.name, url)
+
     with task_lock:
-        current_task["status"] = "running"
-        current_task["type"] = "gdrive"
-        current_task["event"] = event_slug
-        current_task["message"] = f"Downloading from Google Drive into '{dest_dir.name}'..."
-    append_log(f"--- Starting Google Drive Download into {dest_dir} ---")
+        current_task = {
+            "task_id": task_id,
+            "status": "running",
+            "type": "gdrive_ingest",
+            "event": event_slug,
+            "target_folder": dest_dir.name,
+            "source_url": url,
+            "progress_pct": 5,
+            "processed_files": 0,
+            "total_files": 0,
+            "storage_saved_mb": 0.0,
+            "message": f"Downloading from Google Drive into '{dest_dir.name}'...",
+            "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+    append_log(f"[{datetime.now().strftime('%H:%M:%S')}] Starting Google Drive download for event '{event_slug}', folder '{dest_dir.name}' from {url}")
+    update_task_progress(task_id, progress_pct=5, current_step="Initializing Google Drive folder scan...", log_line=f"Target: {dest_dir.name} | Source: {url}")
+
     dest_dir.mkdir(parents=True, exist_ok=True)
     map_file = DATA / "drive_map.json"
     current_fid = None
+    total_detected = 0
+    processed_count = 0
+    saved_bytes_total = 0
+
     try:
         proc = subprocess.Popen(
             [sys.executable, "-m", "gdown", "--folder", url, "-O", str(dest_dir)],
@@ -168,34 +210,69 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
         for line in proc.stdout:
             txt = line.rstrip()
             append_log(txt)
+            update_task_progress(task_id, log_line=txt)
+
             m = re.search(r'Processing file ([a-zA-Z0-9_-]+) ([a-zA-Z0-9_.-]+)', txt)
             if m:
                 fid, fname = m.group(1), m.group(2)
                 drive_map[f"{rel_prefix}/{fname}"] = fid
                 drive_map[fname] = fid
+                total_detected += 1
+
             m_from = re.search(r'From:\s*https://drive\.google\.com/uc\?id=([a-zA-Z0-9_-]+)', txt)
             if m_from:
                 current_fid = m_from.group(1)
+
             m_to = re.search(r'To:\s*.*[/\\]([a-zA-Z0-9_.-]+)', txt)
             if m_to and current_fid:
                 fname = m_to.group(1)
                 drive_map[f"{rel_prefix}/{fname}"] = current_fid
                 drive_map[fname] = current_fid
                 current_fid = None
+                processed_count += 1
+
+                # Immediate optimization: downscale 30MB RAW to ~350KB web preview immediately
+                downloaded_file = dest_dir / fname
+                if downloaded_file.exists():
+                    orig_size = downloaded_file.stat().st_size
+                    optimize_photo_inplace(downloaded_file)
+                    new_size = downloaded_file.stat().st_size
+                    saved_bytes_total += max(0, orig_size - new_size)
+                    time.sleep(0.04) # Prevent CPU throttling
+
+                pct = min(70, int((processed_count / max(1, total_detected or processed_count)) * 70))
+                saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
+                with task_lock:
+                    current_task["progress_pct"] = pct
+                    current_task["processed_files"] = processed_count
+                    current_task["total_files"] = max(total_detected, processed_count)
+                    current_task["storage_saved_mb"] = saved_mb
+                    current_task["message"] = f"Downloaded & compressed {fname} ({processed_count}/{max(total_detected, processed_count)})"
+                update_task_progress(task_id, progress_pct=pct,
+                                     current_step=f"Downloaded & compressed {fname} ({processed_count} files)",
+                                     processed_files=processed_count, total_files=max(total_detected, processed_count),
+                                     storage_saved_mb=saved_mb)
+
         proc.wait()
-        append_log(f"--- Google Drive Download Finished (exit code {proc.returncode}) ---")
-        
+        append_log(f"--- Google Drive download completed (code {proc.returncode}) ---")
         try:
             map_file.write_text(json.dumps(drive_map, indent=2))
         except Exception:
             pass
-            
-        append_log("Optimizing downloaded images for VPS storage...")
+
+        # Final pass optimization on any leftover large files
         valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
         for img_path in dest_dir.rglob("*"):
-            if img_path.suffix.lower() in valid_exts:
-                optimize_photo_inplace(img_path)
-        append_log("Optimization complete.")
+            if img_path.is_file() and img_path.suffix.lower() in valid_exts:
+                orig_size = img_path.stat().st_size
+                if orig_size > 700 * 1024:
+                    optimize_photo_inplace(img_path)
+                    new_size = img_path.stat().st_size
+                    saved_bytes_total += max(0, orig_size - new_size)
+                    time.sleep(0.04)
+
+        saved_mb = round(saved_bytes_total / (1024 * 1024), 1)
+        update_task_progress(task_id, progress_pct=75, current_step="Registering photos in database...", storage_saved_mb=saved_mb)
 
         # Update database with new photos and proper album assignment
         conn = get_db()
@@ -238,14 +315,25 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
             conn.commit()
         conn.close()
 
-        # Run face indexer
-        run_indexing_task(event_slug)
+        # Run face indexer with task tracking
+        update_task_progress(task_id, progress_pct=85, current_step="Running AI facial recognition indexing...")
+        run_indexing_task(event_slug, task_id)
+
+        # Final completion
+        with task_lock:
+            current_task["status"] = "completed"
+            current_task["progress_pct"] = 100
+            current_task["message"] = f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'."
+        update_task_progress(task_id, progress_pct=100, status="completed",
+                             current_step=f"Finished! {processed_count} photos imported and indexed into '{dest_dir.name}'.",
+                             processed_files=processed_count, total_files=max(total_detected, processed_count),
+                             storage_saved_mb=saved_mb, log_line=f"SUCCESS: {processed_count} photos processed.")
     except Exception as e:
-        append_log(f"Google Drive download error: {e}")
+        append_log(f"Google Drive task error: {e}")
         with task_lock:
             current_task["status"] = "error"
-            current_task["type"] = None
             current_task["message"] = f"Error: {e}"
+        update_task_progress(task_id, status="failed", current_step=f"Error: {e}", log_line=f"ERROR: {e}")
 
 app = FastAPI()
 
@@ -972,6 +1060,29 @@ def admin_logs(token: str = Depends(get_auth_token)):
     else:
         lines = log_buffer[-100:]
     return {"logs": lines, "task": current_task}
+
+@app.get("/api/admin/tasks/current")
+def admin_current_task(token: str = Depends(get_auth_token)):
+    latest = get_latest_task()
+    with task_lock:
+        mem_task = dict(current_task)
+    return {
+        "memory_task": mem_task,
+        "latest_task": latest,
+        "is_running": mem_task.get("status") == "running" or (latest and latest.get("status") == "running")
+    }
+
+@app.get("/api/admin/tasks/history")
+def admin_task_history(limit: int = 50, token: str = Depends(get_auth_token)):
+    tasks = list_task_history(limit=limit)
+    return {"tasks": tasks}
+
+@app.get("/api/admin/tasks/{task_id}/logs")
+def admin_task_logs(task_id: str, token: str = Depends(get_auth_token)):
+    task = get_task_by_id(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    return {"task": task}
 
 @app.get("/api/admin/events/{slug}/people")
 def admin_event_people(slug: str, token: str = Depends(get_auth_token)):

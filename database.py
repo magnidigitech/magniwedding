@@ -87,12 +87,101 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS task_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT UNIQUE NOT NULL,
+            task_type TEXT NOT NULL,
+            event_slug TEXT NOT NULL,
+            target_folder TEXT,
+            source_url TEXT,
+            status TEXT DEFAULT 'running',
+            progress_pct INTEGER DEFAULT 0,
+            total_files INTEGER DEFAULT 0,
+            processed_files INTEGER DEFAULT 0,
+            storage_saved_mb REAL DEFAULT 0,
+            current_step TEXT,
+            log_text TEXT DEFAULT '',
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug);
         CREATE INDEX IF NOT EXISTS idx_albums_event ON albums(event_id);
         CREATE INDEX IF NOT EXISTS idx_photos_event_album ON photos(event_id, album_id);
         CREATE INDEX IF NOT EXISTS idx_photos_deleted ON photos(is_deleted);
+        CREATE INDEX IF NOT EXISTS idx_task_history_id ON task_history(task_id);
         """)
     conn.close()
+
+def create_task_record(task_id: str, task_type: str, event_slug: str, target_folder: str = "", source_url: str = ""):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO task_history (task_id, task_type, event_slug, target_folder, source_url, status, progress_pct, current_step)
+        VALUES (?, ?, ?, ?, ?, 'running', 0, 'Starting task...')
+    """, (task_id, task_type, event_slug, target_folder, source_url))
+    conn.commit()
+    conn.close()
+
+def update_task_progress(task_id: str, progress_pct: int = None, current_step: str = None,
+                         processed_files: int = None, total_files: int = None,
+                         storage_saved_mb: float = None, status: str = None, log_line: str = None):
+    conn = get_db()
+    c = conn.cursor()
+    fields = []
+    vals = []
+    if progress_pct is not None:
+        fields.append("progress_pct = ?")
+        vals.append(progress_pct)
+    if current_step is not None:
+        fields.append("current_step = ?")
+        vals.append(current_step)
+    if processed_files is not None:
+        fields.append("processed_files = ?")
+        vals.append(processed_files)
+    if total_files is not None:
+        fields.append("total_files = ?")
+        vals.append(total_files)
+    if storage_saved_mb is not None:
+        fields.append("storage_saved_mb = ?")
+        vals.append(storage_saved_mb)
+    if status is not None:
+        fields.append("status = ?")
+        vals.append(status)
+        if status in {"completed", "failed"}:
+            fields.append("completed_at = CURRENT_TIMESTAMP")
+    if log_line:
+        fields.append("log_text = log_text || ?")
+        vals.append(f"[{log_line}]\n")
+    if fields:
+        vals.append(task_id)
+        c.execute(f"UPDATE task_history SET {', '.join(fields)} WHERE task_id = ?", vals)
+        conn.commit()
+    conn.close()
+
+def get_latest_task():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM task_history ORDER BY id DESC LIMIT 1")
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def list_task_history(limit=50):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM task_history ORDER BY id DESC LIMIT ?", (limit,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def get_task_by_id(task_id: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM task_history WHERE task_id = ?", (task_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 def migrate_existing_data():
     """Migrates existing single-event data into the multi-event structure seamlessly."""

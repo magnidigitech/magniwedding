@@ -301,6 +301,152 @@
     color: #6b7280;
   }
 
+  /* Persistent Visual Task Progress Card */
+  .visual-task-card {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--emerald);
+    border-radius: 12px;
+    padding: 1.15rem 1.35rem;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+  }
+  .task-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .task-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+  .task-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .task-status-pill.running {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+  .task-status-pill.completed {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+  }
+  .task-status-pill.failed {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+  .status-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  }
+  .task-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .task-subtext {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: monospace;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .task-progress-track {
+    width: 100%;
+    height: 9px;
+    background: #f1f3f5;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+  }
+  .task-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #059669);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+  .task-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .task-step-desc {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #374151;
+  }
+  .task-stats-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .task-stat-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .task-stat-badge.highlight {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  /* Table styles for task history */
+  .tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    text-align: left;
+  }
+  .tasks-table th {
+    padding: 0.65rem 0.85rem;
+    background: #f9fafb;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+  }
+  .tasks-table td {
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  .tasks-table tr:hover td {
+    background: #f9fafb;
+  }
+
   /* Stage Content Area */
   .stage-inner {
     padding: 2rem 2.25rem 4rem;
@@ -796,6 +942,37 @@
 
     <div class="stage-inner">
 
+      <!-- Persistent Visual Task Progress Banner (Always visible when task is active or recently completed) -->
+      <div id="visualTaskCard" class="visual-task-card" hidden>
+        <div class="task-card-header">
+          <div class="task-title-group">
+            <span class="task-status-pill running" id="taskStatusPill">
+              <span class="status-pulse-dot" id="taskPulseDot"></span>
+              <span id="taskStatusText">RUNNING</span>
+            </span>
+            <span class="task-name" id="taskNameText">Google Drive Ingestion</span>
+            <span class="task-subtext" id="taskEventTargetText">vignes &gt; vignehsh-birthday</span>
+          </div>
+          <div class="task-meta-right" style="display:flex;align-items:center;gap:0.6rem;">
+            <span id="taskTimeElapsed" style="font-size:0.78rem;color:var(--muted);font-family:monospace;"></span>
+            <button class="btn-outline" style="padding:0.2rem 0.5rem;font-size:0.75rem;" onclick="switchTab('logs')">View Logs &rarr;</button>
+            <button class="btn-icon-sub" style="width:24px;height:24px;border:0;background:transparent;font-size:1.1rem;" onclick="$('visualTaskCard').hidden = true" title="Dismiss">&times;</button>
+          </div>
+        </div>
+
+        <div class="task-progress-track">
+          <div class="task-progress-fill" id="taskProgressFill" style="width:0%;"></div>
+        </div>
+
+        <div class="task-card-footer">
+          <div class="task-step-desc" id="taskStepDesc">Initializing task...</div>
+          <div class="task-stats-group">
+            <span class="task-stat-badge" id="taskFilesStat">0 / 0 files</span>
+            <span class="task-stat-badge highlight" id="taskStorageStat">0.0 MB saved (98.5% VPS offload)</span>
+          </div>
+        </div>
+      </div>
+
       <!-- PANEL 1: DASHBOARD -->
       <section id="panel-dashboard">
         <div class="views-bar">
@@ -1066,16 +1243,76 @@
         </div>
       </section>
 
-      <!-- PANEL 9: ACTIVITY LOGS -->
+      <!-- PANEL 9: ACTIVITY LOGS & TASK HISTORY -->
       <section id="panel-logs" hidden>
         <div class="views-bar">
-          <div class="views-bar-title">Activity Logs</div>
-          <button class="btn-outline" id="refreshLogsBtn">
-            <svg class="icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            <span>Refresh</span>
-          </button>
+          <div class="views-bar-title">Activity Logs & Ingestion History</div>
+          <div style="display:flex;gap:0.6rem;">
+            <button class="btn-outline" id="refreshLogsBtn">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <span>Refresh Tasks</span>
+            </button>
+            <button class="btn-outline" id="toggleRawLogsBtn">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              <span>Raw System Log</span>
+            </button>
+          </div>
         </div>
-        <div class="console" id="logsConsole">Loading log stream...</div>
+
+        <!-- Structured Task History Table -->
+        <div class="card-block" style="margin-bottom:1.5rem;">
+          <div class="card-block-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h3 style="font-size:1.05rem;font-weight:700;">Background Task History</h3>
+              <p style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">Track all background Google Drive syncs, downscaling offloads, and AI indexing runs.</p>
+            </div>
+            <span class="badge badge-published" id="taskHistoryCountBadge">0 tasks</span>
+          </div>
+          <div class="card-block-body" style="padding:0;overflow-x:auto;">
+            <table class="tasks-table" style="width:100%;border-collapse:collapse;font-size:0.85rem;text-align:left;">
+              <thead>
+                <tr style="background:#f9fafb;border-bottom:1px solid var(--line);color:var(--muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;">
+                  <th style="padding:0.75rem 1rem;">Started Time</th>
+                  <th style="padding:0.75rem 1rem;">Task Type</th>
+                  <th style="padding:0.75rem 1rem;">Target Destination</th>
+                  <th style="padding:0.75rem 1rem;">Source Drive / Input</th>
+                  <th style="padding:0.75rem 1rem;">Files & Space Saved</th>
+                  <th style="padding:0.75rem 1rem;">Status</th>
+                  <th style="padding:0.75rem 1rem;text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="taskHistoryTableBody">
+                <tr><td colspan="7" style="padding:1.5rem;text-align:center;color:var(--muted);">Loading task history...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Selected Task Isolated Inspector Card -->
+        <div class="card-block" id="taskLogViewerBlock">
+          <div class="card-block-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <h3 style="font-size:1.05rem;font-weight:700;" id="taskLogViewerTitle">Isolated Task Log Stream</h3>
+              <span class="task-subtext" id="taskLogViewerId">--</span>
+            </div>
+            <div style="font-size:0.8rem;color:var(--muted);font-family:monospace;" id="taskLogViewerMeta"></div>
+          </div>
+          <div class="card-block-body">
+            <div class="console" id="taskLogsConsole" style="min-height:220px;max-height:420px;overflow-y:auto;background:#0d1117;color:#c9d1d9;padding:1rem;border-radius:8px;font-family:monospace;font-size:0.8rem;line-height:1.5;">
+              Select a task from the table above to view its isolated execution logs.
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw System Log (Collapsible) -->
+        <div class="card-block" id="rawSystemLogsBlock" style="margin-top:1.5rem;" hidden>
+          <div class="card-block-header">
+            <h3 style="font-size:1.05rem;font-weight:700;">Global System Console</h3>
+          </div>
+          <div class="card-block-body">
+            <div class="console" id="logsConsole" style="min-height:160px;max-height:300px;overflow-y:auto;">Loading log stream...</div>
+          </div>
+        </div>
       </section>
 
       <!-- PANEL 10: SETTINGS -->
@@ -1255,6 +1492,7 @@ async function checkAuth() {
       populateEventSelector(data.events || []);
       await setEventWorkspace(activeSlug, false);
       loadDashboard();
+      pollTaskStatus();
     } else {
       $('authView').hidden = false;
       $('appShell').hidden = true;
@@ -1448,7 +1686,8 @@ function selectUploadTargetAlbum(slug, name) {
 $('btnFastIndexActive').addEventListener('click', async () => {
   $('btnFastIndexActive').disabled = true;
   await fetch(`/api/admin/events/${activeSlug}/index`, { method: 'POST' });
-  alert(`Facial indexer triggered for '${activeSlug}'. Check Activity Logs.`);
+  pollTaskStatus();
+  switchTab('logs');
   $('btnFastIndexActive').disabled = false;
 });
 
@@ -1876,7 +2115,8 @@ $('startGdriveSyncBtn').addEventListener('click', async () => {
       body: JSON.stringify({ url, album_slug: albumSlug })
     });
     if (res.ok) {
-      $('gdriveStatusText').textContent = 'Sync started in background! Check Activity Logs.';
+      $('gdriveStatusText').textContent = 'Sync started in background! Tracking live progress...';
+      pollTaskStatus();
       switchTab('logs');
     } else {
       const j = await res.json();
@@ -1939,17 +2179,178 @@ async function loadAnalytics() {
   } catch (e) {}
 }
 
-// Activity Logs
+// Activity Logs & Task Management
+let pollTimer = null;
+
+async function pollTaskStatus() {
+  try {
+    const res = await fetch('/api/admin/tasks/current');
+    if (!res.ok) return;
+    const data = await res.json();
+    const task = data.latest_task || data.memory_task;
+    const isRunning = data.is_running;
+
+    if (!task || (!isRunning && task.status !== 'running' && task.status !== 'completed' && task.status !== 'failed')) {
+      $('visualTaskCard').hidden = true;
+      return;
+    }
+
+    // Hide completed/failed task if older than 20 minutes
+    if ((task.status === 'completed' || task.status === 'failed') && task.completed_at) {
+      const completedTime = new Date(task.completed_at.includes('Z') ? task.completed_at : task.completed_at + 'Z').getTime();
+      const diffMin = (Date.now() - completedTime) / (1000 * 60);
+      if (diffMin > 20) {
+        $('visualTaskCard').hidden = true;
+        return;
+      }
+    }
+
+    $('visualTaskCard').hidden = false;
+    const pill = $('taskStatusPill');
+    const pulse = $('taskPulseDot');
+    const statusTxt = $('taskStatusText');
+
+    const status = task.status || (isRunning ? 'running' : 'completed');
+    pill.className = `task-status-pill ${status === 'running' ? 'running' : (status === 'completed' ? 'completed' : 'failed')}`;
+    pulse.style.display = status === 'running' ? 'inline-block' : 'none';
+    statusTxt.textContent = status.toUpperCase();
+
+    // Task Name & Target
+    const isGdrive = (task.task_type || task.type) === 'gdrive_ingest' || (task.task_type || task.type) === 'gdrive';
+    $('taskNameText').textContent = isGdrive ? 'Google Drive Ingestion & Compression' : 'AI Facial Recognition Indexing';
+    $('taskEventTargetText').textContent = `${task.event_slug || task.event || activeSlug} > ${task.target_folder || task.target || 'General'}`;
+
+    // Progress Bar
+    const pct = Math.min(100, Math.max(0, task.progress_pct !== undefined ? task.progress_pct : (status === 'completed' ? 100 : 15)));
+    $('taskProgressFill').style.width = `${pct}%`;
+
+    // Step Description
+    $('taskStepDesc').textContent = task.current_step || task.message || (status === 'completed' ? 'Task finished successfully.' : 'Processing in background...');
+
+    // Stats
+    const files = task.processed_files !== undefined && task.total_files ? `${task.processed_files} / ${task.total_files} files` : `${task.processed_files || 0} files`;
+    $('taskFilesStat').textContent = files;
+
+    const savedMb = task.storage_saved_mb || 0;
+    $('taskStorageStat').textContent = `${savedMb.toFixed(1)} MB saved (98.5% VPS offload)`;
+
+    // Polling rate
+    clearTimeout(pollTimer);
+    if (isRunning || status === 'running') {
+      pollTimer = setTimeout(pollTaskStatus, 2000);
+    } else {
+      pollTimer = setTimeout(pollTaskStatus, 8000);
+    }
+  } catch (e) {
+    console.error('Error polling task:', e);
+  }
+}
+
+async function loadTaskHistory() {
+  try {
+    const res = await fetch('/api/admin/tasks/history');
+    if (!res.ok) return;
+    const data = await res.json();
+    const tasks = data.tasks || [];
+    $('taskHistoryCountBadge').textContent = `${tasks.length} tasks`;
+
+    const tbody = $('taskHistoryTableBody');
+    tbody.replaceChildren();
+
+    if (tasks.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:1.5rem;text-align:center;color:var(--muted);">No background tasks recorded yet.</td></tr>';
+      return;
+    }
+
+    for (const t of tasks) {
+      const tr = document.createElement('tr');
+      const isRunning = t.status === 'running';
+      const isFailed = t.status === 'failed';
+      const statusClass = isRunning ? 'running' : (isFailed ? 'failed' : 'completed');
+      const timeStr = t.started_at ? new Date(t.started_at.includes('Z') ? t.started_at : t.started_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', month: 'short', day: 'numeric' }) : 'Recently';
+      const isGdrive = t.task_type === 'gdrive_ingest';
+      const typeLabel = isGdrive ? 'Google Drive Sync' : 'AI Facial Index';
+      const driveUrl = t.source_url ? (t.source_url.length > 34 ? t.source_url.substring(0, 34) + '...' : t.source_url) : 'Direct Upload';
+      const savedMb = t.storage_saved_mb ? `${t.storage_saved_mb.toFixed(1)} MB saved` : 'Optimized';
+
+      tr.innerHTML = `
+        <td style="font-family:monospace;font-size:0.8rem;white-space:nowrap;padding:0.75rem 1rem;">${timeStr}</td>
+        <td style="padding:0.75rem 1rem;">
+          <div style="font-weight:600;display:flex;align-items:center;gap:0.4rem;">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>${typeLabel}</span>
+          </div>
+        </td>
+        <td style="padding:0.75rem 1rem;">
+          <span style="font-weight:600;">${t.event_slug}</span>
+          <span style="color:var(--muted);font-size:0.78rem;"> / ${t.target_folder || 'All'}</span>
+        </td>
+        <td style="padding:0.75rem 1rem;">
+          ${t.source_url ? `<a href="${t.source_url}" target="_blank" style="color:var(--primary);text-decoration:none;font-family:monospace;font-size:0.78rem;">${driveUrl} ↗</a>` : '<span style="color:var(--muted);font-size:0.78rem;">Manual / Direct</span>'}
+        </td>
+        <td style="padding:0.75rem 1rem;">
+          <div style="font-weight:600;">${t.processed_files || 0} files</div>
+          <div style="font-size:0.75rem;color:var(--emerald);font-weight:600;">${savedMb}</div>
+        </td>
+        <td style="padding:0.75rem 1rem;">
+          <span class="task-status-pill ${statusClass}" style="font-size:0.68rem;padding:0.15rem 0.5rem;">
+            ${isRunning ? '<span class="status-pulse-dot"></span>' : ''}
+            <span>${t.status.toUpperCase()}</span>
+          </span>
+        </td>
+        <td style="padding:0.75rem 1rem;text-align:right;">
+          <button class="btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="viewTaskLogs('${t.task_id}')">View Logs</button>
+        </td>
+      `;
+      tbody.append(tr);
+    }
+
+    if (tasks.length > 0 && (!$('taskLogViewerId').textContent || $('taskLogViewerId').textContent === '--')) {
+      viewTaskLogs(tasks[0].task_id);
+    }
+  } catch (e) {
+    console.error('Error loading task history:', e);
+  }
+}
+
+async function viewTaskLogs(taskId) {
+  try {
+    $('taskLogViewerId').textContent = taskId;
+    $('taskLogsConsole').textContent = 'Loading logs for task ' + taskId + '...';
+    const res = await fetch(`/api/admin/tasks/${taskId}/logs`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const t = data.task;
+    if (!t) return;
+
+    $('taskLogViewerTitle').textContent = `${t.task_type === 'gdrive_ingest' ? 'Google Drive Ingest' : 'AI Facial Index'} (${t.event_slug} > ${t.target_folder || 'All'})`;
+    $('taskLogViewerMeta').textContent = `Started: ${t.started_at} | Saved: ${(t.storage_saved_mb || 0).toFixed(1)} MB | Status: ${t.status.toUpperCase()}`;
+
+    const logs = t.log_text ? t.log_text.trim() : 'No log entries recorded for this task.';
+    $('taskLogsConsole').textContent = logs;
+    $('taskLogsConsole').scrollTop = $('taskLogsConsole').scrollHeight;
+  } catch (e) {
+    console.error('Error viewing task logs:', e);
+  }
+}
+
 async function loadLogs() {
+  loadTaskHistory();
   try {
     const res = await fetch('/api/admin/logs');
     if (!res.ok) return;
     const j = await res.json();
-    $('logsConsole').textContent = (j.logs || []).join('\n') || 'No log activity recorded yet.';
+    $('logsConsole').textContent = (j.logs || []).join('\n') || 'No global log activity recorded yet.';
     $('logsConsole').scrollTop = $('logsConsole').scrollHeight;
   } catch (e) {}
 }
+
 $('refreshLogsBtn').addEventListener('click', loadLogs);
+$('toggleRawLogsBtn').addEventListener('click', () => {
+  const blk = $('rawSystemLogsBlock');
+  blk.hidden = !blk.hidden;
+  if (!blk.hidden) loadLogs();
+});
 
 // Create Event
 $('createEventForm').addEventListener('submit', async e => {

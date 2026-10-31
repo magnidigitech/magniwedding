@@ -3,8 +3,16 @@ Event-aware Face Indexer for MagniWedding.
 Can index a specific event (--event <slug>) or all events.
 Saves per-event face embeddings, names, and thumbnails.
 """
-import argparse, json, os, sys
+import argparse, json, os, sys, time
 from pathlib import Path
+
+# Limit CPU threads to avoid spiking and throttling VPS CPU
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+
 import cv2
 import numpy as np
 from PIL import Image, ImageOps
@@ -89,6 +97,8 @@ def index_event(event_slug="wedding"):
             print(f"  Skipped {rel}: {e}")
             
         done.add(rel)
+        # Yield CPU briefly so server remains completely responsive
+        time.sleep(0.04)
         if i % 25 == 0:
             print(f"Progress: {i}/{len(files)} photos | Faces so far: {len(embs)}")
             save()
