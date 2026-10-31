@@ -10,7 +10,7 @@ Coolify needs GitHub access: in Coolify go to **Sources** and connect GitHub, or
 ## 2. Create the app in Coolify
 
 1. **Project > New Resource > Private Repository** (or Public if you made it public), pick the repo.
-2. Build Pack: **Dockerfile**. Ports Exposes: **8000**.
+2. Build Pack: **Dockerfile**. Ports Exposes: **3000**.
 3. Domains: Coolify can fill in a free `*.sslip.io` address for your server IP, or enter your own domain
    (with an A record pointing to the server). Coolify gets the HTTPS certificate automatically.
 4. **Persistent Storage > Add > Directory Mount**:

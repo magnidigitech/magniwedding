@@ -12,5 +12,6 @@ COPY app.py index_photos.py ./
 COPY static ./static
 
 ENV STORAGE_DIR=/storage
-EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 3000
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-3000}"]
+
