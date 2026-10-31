@@ -1,9 +1,10 @@
-import os, sys, threading, subprocess, secrets, shutil, zipfile, io
+import os, sys, threading, subprocess, secrets, shutil, zipfile, io, re
 from pathlib import Path
+from PIL import Image, ImageOps
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends, Form
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from insightface.app import FaceAnalysis
 import json
@@ -23,16 +24,36 @@ ADMIN_KEY = os.environ.get("ADMIN_KEY", "Magni@3939")
 
 embs = np.zeros((0, 512), dtype=np.float32)
 names, known, loaded_mtime = [], set(), 0.0
+drive_map = {}
 
 def reload_index():
     """Re-reads the index whenever indexing has produced a newer file (no restart needed)."""
-    global embs, names, known, loaded_mtime
+    global embs, names, known, loaded_mtime, drive_map
     f = DATA / "embeddings.npy"
     if f.exists() and f.stat().st_mtime != loaded_mtime:
         embs = np.load(f)
         names = json.loads((DATA / "names.json").read_text())
         known = set(names)
         loaded_mtime = f.stat().st_mtime
+    map_file = DATA / "drive_map.json"
+    if map_file.exists():
+        try:
+            drive_map = json.loads(map_file.read_text())
+        except Exception:
+            pass
+
+def optimize_photo_inplace(path: Path, max_dim=1920, quality=82):
+    """Compresses large RAW/camera photo down to a lightweight web-friendly file (~500KB-800KB)."""
+    try:
+        if path.stat().st_size <= 900 * 1024:
+            return  # Already lightweight
+        with Image.open(path) as img:
+            img = ImageOps.exif_transpose(img).convert("RGB")
+            if max(img.size) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            img.save(path, "JPEG", quality=quality, optimize=True)
+    except Exception as e:
+        pass
 
 reload_index()
 
@@ -96,7 +117,7 @@ def run_indexing_task():
             current_task["message"] = f"Error: {e}"
 
 def run_gdrive_download(url: str, folder_name: str):
-    global current_task
+    global current_task, drive_map
     with task_lock:
         current_task["status"] = "running"
         current_task["type"] = "gdrive"
@@ -104,6 +125,7 @@ def run_gdrive_download(url: str, folder_name: str):
     append_log(f"--- Starting Google Drive Download into {folder_name} ---")
     dest_dir = PHOTOS / folder_name
     dest_dir.mkdir(parents=True, exist_ok=True)
+    map_file = DATA / "drive_map.json"
     try:
         proc = subprocess.Popen(
             [sys.executable, "-m", "gdown", "--folder", url, "-O", str(dest_dir)],
@@ -113,9 +135,29 @@ def run_gdrive_download(url: str, folder_name: str):
             bufsize=1
         )
         for line in proc.stdout:
-            append_log(line.rstrip())
+            txt = line.rstrip()
+            append_log(txt)
+            m = re.search(r'Processing file ([a-zA-Z0-9_-]+) ([a-zA-Z0-9_.-]+)', txt)
+            if m:
+                fid, fname = m.group(1), m.group(2)
+                drive_map[f"{folder_name}/{fname}"] = fid
         proc.wait()
         append_log(f"--- Google Drive Download Finished (exit code {proc.returncode}) ---")
+        
+        # Save updated mapping
+        try:
+            map_file.write_text(json.dumps(drive_map, indent=2))
+        except Exception:
+            pass
+            
+        # Optimize / compress photos locally to save 95%+ VPS disk space
+        append_log("Compressing images for VPS storage optimization...")
+        valid_exts = {".jpg", ".jpeg", ".png", ".webp"}
+        for img_path in dest_dir.rglob("*"):
+            if img_path.suffix.lower() in valid_exts:
+                optimize_photo_inplace(img_path)
+        append_log("Image optimization complete.")
+
         # Automatically run indexing after download completes
         run_indexing_task()
     except Exception as e:
@@ -169,6 +211,12 @@ def photo(name: str):
         reload_index()
     if name not in known:
         raise HTTPException(404)
+    drive_id = drive_map.get(name)
+    if drive_id:
+        return RedirectResponse(
+            f"https://drive.google.com/uc?export=download&id={drive_id}",
+            status_code=302
+        )
     return FileResponse(PHOTOS / name, filename=Path(name).name)
 
 # --- Admin APIs ---
@@ -244,6 +292,7 @@ async def admin_upload(
                             dest_path = target_dir / sub_name
                             with z.open(info) as src, open(dest_path, "wb") as dst:
                                 shutil.copyfileobj(src, dst)
+                            optimize_photo_inplace(dest_path)
                             saved_count += 1
             except Exception as e:
                 append_log(f"Error extracting {filename}: {e}")
@@ -252,6 +301,7 @@ async def admin_upload(
             dest_path = target_dir / filename
             with open(dest_path, "wb") as dst:
                 dst.write(content)
+            optimize_photo_inplace(dest_path)
             saved_count += 1
             
     append_log(f"Uploaded {saved_count} photos to '{safe_folder}'.")
