@@ -485,8 +485,87 @@ def admin_create_event(payload: dict, token: str = Depends(get_auth_token)):
     
     return {"status": "ok", "slug": slug}
 
+def sync_event_folders_and_photos(slug: str):
+    """Auto-detect physical folders on disk, register missing albums, and link unassigned photos."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM events WHERE slug = ?", (slug,))
+    erow = cursor.fetchone()
+    if not erow:
+        conn.close()
+        return
+    eid = erow["id"]
+
+    if slug in {"default", "wedding"}:
+        event_dir = PHOTOS
+    else:
+        event_dir = PHOTOS / "events" / slug
+
+    event_dir.mkdir(parents=True, exist_ok=True)
+    valid_exts = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
+
+    try:
+        for d in sorted(event_dir.iterdir()):
+            if not d.is_dir() or d.name.startswith((".", "_")) or d.name == "events":
+                continue
+            folder_name = d.name
+            album_slug = re.sub(r"[^a-zA-Z0-9_-]", "-", folder_name.lower()).strip("-")
+            if not album_slug:
+                continue
+            display_name = folder_name.replace("-", " ").replace("_", " ").title()
+
+            cursor.execute("SELECT id FROM albums WHERE event_id = ? AND (slug = ? OR name = ?)", (eid, album_slug, display_name))
+            arow = cursor.fetchone()
+            if not arow:
+                cursor.execute("""
+                    INSERT INTO albums (event_id, slug, name, sort_order)
+                    VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM albums WHERE event_id = ?))
+                """, (eid, album_slug, display_name, eid))
+                album_id = cursor.lastrowid
+            else:
+                album_id = arow["id"]
+
+            for f in d.iterdir():
+                if f.is_file() and f.suffix.lower() in valid_exts and not f.name.startswith("."):
+                    rel = str(f.relative_to(PHOTOS))
+                    fsize = f.stat().st_size
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO photos (event_id, album_id, filename, rel_path, file_size_bytes)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (eid, album_id, f.name, rel, fsize))
+                    cursor.execute("""
+                        UPDATE photos SET album_id = ? WHERE event_id = ? AND rel_path = ? AND (album_id IS NULL OR album_id = 0)
+                    """, (album_id, eid, rel))
+
+        # Direct files in event root
+        for f in event_dir.iterdir():
+            if f.is_file() and f.suffix.lower() in valid_exts and not f.name.startswith("."):
+                rel = str(f.relative_to(PHOTOS))
+                fsize = f.stat().st_size
+                cursor.execute("""
+                    INSERT OR IGNORE INTO photos (event_id, filename, rel_path, file_size_bytes)
+                    VALUES (?, ?, ?, ?)
+                """, (eid, f.name, rel, fsize))
+
+        # Set cover image for any album that has photos but no cover
+        cursor.execute("""
+            SELECT a.id, a.cover_image_path,
+                   (SELECT p.rel_path FROM photos p WHERE p.album_id = a.id AND p.is_deleted = 0 ORDER BY p.id ASC LIMIT 1) as first_photo
+            FROM albums a WHERE a.event_id = ?
+        """, (eid,))
+        for a in cursor.fetchall():
+            if not a["cover_image_path"] and a["first_photo"]:
+                cursor.execute("UPDATE albums SET cover_image_path = ? WHERE id = ?", (a["first_photo"], a["id"]))
+
+        conn.commit()
+    except Exception as e:
+        print(f"Error in sync_event_folders_and_photos({slug}): {e}")
+    finally:
+        conn.close()
+
 @app.get("/api/admin/events/{slug}")
 def admin_event_workspace(slug: str, token: str = Depends(get_auth_token)):
+    sync_event_folders_and_photos(slug)
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM events WHERE slug = ?", (slug,))
@@ -601,6 +680,7 @@ def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_t
 
 @app.get("/api/admin/events/{slug}/photos")
 def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends(get_auth_token)):
+    sync_event_folders_and_photos(slug)
     conn = get_db()
     cursor = conn.cursor()
     if album_id:

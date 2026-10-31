@@ -9,10 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --rail-bg: #0f1115;
-    --rail-icon: #8b92a0;
-    --rail-icon-active: #ffffff;
-    --rail-active-bg: rgba(255, 255, 255, 0.12);
     --sidebar-bg: #ffffff;
     --sidebar-line: #ebeef2;
     --nav-ink: #4b5563;
@@ -25,13 +21,11 @@
     --muted: #6b7280;
     --accent: #0f5c4d;
     --accent-hover: #0a4338;
-    --accent-ink: #ffffff;
     --primary: #111827;
     --primary-hover: #1f2937;
     --orange: #f97316;
     --emerald: #10b981;
     --err: #dc2626;
-    --err-bg: #fef2f2;
     --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
@@ -59,67 +53,22 @@
     vertical-align: middle;
     flex-shrink: 0;
   }
-
-  /* Left Narrow Icon Rail (Image 3 Parity) */
-  .nav-rail {
-    width: 68px;
-    background: var(--rail-bg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1.25rem 0;
+  .icon-sm {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+    stroke: currentColor;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: inline-block;
+    vertical-align: middle;
     flex-shrink: 0;
-    z-index: 40;
-  }
-  .rail-logo {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background: #1f2430;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    margin-bottom: 2rem;
-  }
-  .rail-logo svg {
-    width: 20px;
-    height: 20px;
-  }
-  .rail-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    list-style: none;
-    width: 100%;
-    align-items: center;
-  }
-  .rail-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--rail-icon);
-    cursor: pointer;
-    transition: all 0.15s;
-    background: transparent;
-    border: 0;
-    position: relative;
-  }
-  .rail-btn:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .rail-btn.active {
-    color: var(--rail-icon-active);
-    background: var(--rail-active-bg);
   }
 
-  /* Sub-Sidebar Panel (Image 3 Parity) */
-  .sub-sidebar {
-    width: 240px;
+  /* Single Clean Professional Sidebar */
+  .main-sidebar {
+    width: 268px;
     background: var(--sidebar-bg);
     border-right: 1px solid var(--sidebar-line);
     display: flex;
@@ -129,23 +78,51 @@
     position: sticky;
     top: 0;
     z-index: 30;
+    overflow-y: auto;
   }
-  .sub-header {
-    padding: 1.35rem 1.25rem 1rem;
+  .sidebar-header {
+    padding: 1.25rem 1.25rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--sidebar-line);
   }
-  .sub-title {
-    font-size: 0.95rem;
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .brand-logo-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #111827;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .brand-logo-box svg {
+    width: 18px;
+    height: 18px;
+  }
+  .brand-title {
+    font-size: 0.98rem;
     font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.01em;
   }
+  .admin-badge {
+    background: #ecfdf5;
+    color: #059669;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 99px;
+  }
   .btn-icon-sub {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
     border: 1px solid var(--line);
     background: #ffffff;
@@ -154,27 +131,29 @@
     justify-content: center;
     color: var(--muted);
     cursor: pointer;
+    transition: all 0.15s;
   }
   .btn-icon-sub:hover { color: var(--ink); border-color: var(--ink); }
+
   .nav-group-title {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #9ca3af;
-    padding: 1.2rem 1.25rem 0.4rem;
+    padding: 1.15rem 1.25rem 0.35rem;
   }
-  .sub-nav-list {
+  .sidebar-nav-list {
     list-style: none;
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
     padding: 0 0.75rem;
   }
-  .sub-nav-item {
+  .nav-item {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    justify-content: space-between;
     padding: 0.55rem 0.75rem;
     border-radius: 8px;
     font-size: 0.86rem;
@@ -184,17 +163,91 @@
     transition: all 0.15s;
     user-select: none;
   }
-  .sub-nav-item:hover {
+  .nav-item-content {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .nav-item:hover {
     color: var(--nav-ink-active);
     background: #f9fafb;
   }
-  .sub-nav-item.active {
+  .nav-item.active {
     color: var(--nav-ink-active);
     background: var(--nav-active-bg);
     font-weight: 600;
   }
-  .sub-nav-item.active .icon {
+  .nav-item.active .icon {
     stroke: var(--primary);
+  }
+  .nav-badge-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: #e5e7eb;
+    color: #374151;
+    padding: 1px 6px;
+    border-radius: 99px;
+  }
+
+  /* Subfolders Tree in Sidebar */
+  .sidebar-subfolders-tree {
+    list-style: none;
+    margin: 0.2rem 0 0.4rem 1.75rem;
+    padding-left: 0.65rem;
+    border-left: 1.5px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .subfolder-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .subfolder-item:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+  .subfolder-item.active {
+    background: #111827;
+    color: #ffffff;
+    font-weight: 600;
+  }
+  .subfolder-item.active .subfolder-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+  .subfolder-item.active .icon-sm {
+    stroke: #ffffff;
+  }
+  .subfolder-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f1f3f5;
+    padding: 1px 5px;
+    border-radius: 99px;
+  }
+  .subfolder-create-link {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-top: 0.15rem;
+  }
+  .subfolder-create-link:hover {
+    color: #111827;
+    background: #f9fafb;
   }
 
   /* Main Workspace Stage */
@@ -217,6 +270,8 @@
     position: sticky;
     top: 0;
     z-index: 20;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
   .welcome-msg {
     font-size: 1.15rem;
@@ -227,6 +282,23 @@
     display: flex;
     align-items: center;
     gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .event-picker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f9fafb;
+    border: 1px solid var(--line);
+    padding: 0.3rem 0.65rem;
+    border-radius: 8px;
+  }
+  .event-picker-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
   }
 
   /* Stage Content Area */
@@ -236,35 +308,27 @@
     width: 100%;
   }
 
-  /* Views Tabs Bar (Image 3 Parity) */
+  /* Views Tabs Bar */
   .views-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--line);
     margin-bottom: 1.75rem;
+    padding-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
-  .tabs-group {
+  .views-bar-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ink);
     display: flex;
-    gap: 1.5rem;
-  }
-  .tab-link {
-    padding: 0.6rem 0;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-  }
-  .tab-link.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
+    gap: 0.5rem;
   }
 
-  /* Metrics Cards (Image 3 Parity) */
+  /* Metrics Cards */
   .grid-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -385,6 +449,49 @@
     background: #ffffff; color: var(--ink); font-size: 0.88rem; font-family: inherit;
   }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+
+  /* Subfolder Chips Selector (Upload Manager) */
+  .folder-chips-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .folder-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .folder-chip:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+  .folder-chip.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+  }
+  .folder-chip.active .chip-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+  .chip-badge {
+    font-size: 0.72rem;
+    background: #e5e7eb;
+    color: #4b5563;
+    padding: 1px 6px;
+    border-radius: 99px;
+  }
 
   /* Photo Management Grid */
   .photo-toolbar {
@@ -547,145 +654,131 @@
   </div>
 </div>
 
-<!-- Main Application Shell (Image 3 Two-Tier Architecture) -->
+<!-- Main Application Shell (Single Light Sidebar Architecture) -->
 <div id="appShell" style="display:flex;width:100%;" hidden>
   
-  <!-- 1. Left Icon Rail (Image 3 Parity) -->
-  <aside class="nav-rail">
-    <div class="rail-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2"/>
-        <polyline points="3 9 12 15 21 9"/>
-      </svg>
-    </div>
-
-    <ul class="rail-list">
-      <li>
-        <button class="rail-btn active" data-tab="dashboard" title="Dashboard">
-          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="events" title="Events">
-          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="albums" title="Albums">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="photos" title="Photo Library">
-          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="people" title="People Directory">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="upload" title="Upload Manager">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="storage" title="Storage Management">
-          <svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="analytics" title="Analytics">
-          <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="logs" title="Activity Logs">
-          <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        </button>
-      </li>
-      <li>
-        <button class="rail-btn" data-tab="settings" title="Settings">
-          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-      </li>
-    </ul>
-  </aside>
-
-  <!-- 2. Sub-Navigation Sidebar (Image 3 Parity) -->
-  <aside class="sub-sidebar">
-    <div class="sub-header">
-      <span class="sub-title">MagniWedding</span>
+  <!-- Unified Professional Light Sidebar -->
+  <aside class="main-sidebar">
+    <div class="sidebar-header">
+      <div class="brand-group">
+        <div class="brand-logo-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+        <span class="brand-title">MagniWedding</span>
+        <span class="admin-badge">Admin</span>
+      </div>
       <button class="btn-icon-sub" onclick="openNewEventModal()" title="Create Event">
         <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
 
+    <!-- PLATFORM SECTION -->
     <div class="nav-group-title">Platform</div>
-    <ul class="sub-nav-list">
-      <li class="sub-nav-item active" data-tab="dashboard">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        <span>Dashboard</span>
+    <ul class="sidebar-nav-list">
+      <li class="nav-item active" data-tab="dashboard">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Dashboard</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="events">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Events</span>
+
+      <li class="nav-item" data-tab="events">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Events</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="albums">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Albums & Folders</span>
+
+      <li class="nav-item" data-tab="albums">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>Albums & Folders</span>
+        </div>
+        <span class="nav-badge-count" id="sidebarAlbumCount">0</span>
       </li>
-      <li class="sub-nav-item" data-tab="photos">
-        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <span>Photo Library</span>
+
+      <!-- Dynamic Subfolders Tree for Active Event -->
+      <ul class="sidebar-subfolders-tree" id="sidebarSubfoldersList">
+        <!-- Injected via JavaScript based on selected event -->
+      </ul>
+
+      <li class="nav-item" data-tab="photos">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Photo Library</span>
+        </div>
       </li>
     </ul>
 
+    <!-- AI & DISCOVERY SECTION -->
     <div class="nav-group-title">AI & Discovery</div>
-    <ul class="sub-nav-list">
-      <li class="sub-nav-item" data-tab="people">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>People Directory</span>
+    <ul class="sidebar-nav-list">
+      <li class="nav-item" data-tab="people">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>People & Face Search</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="upload">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span>Upload Manager</span>
+
+      <li class="nav-item" data-tab="upload">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Upload Manager</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="storage">
-        <svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        <span>Storage Offload</span>
+
+      <!-- Dynamic Subfolder Upload Targets -->
+      <ul class="sidebar-subfolders-tree" id="sidebarUploadTargetsList">
+        <!-- Injected via JavaScript based on selected event -->
+      </ul>
+
+      <li class="nav-item" data-tab="storage">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <span>Storage Management</span>
+        </div>
       </li>
     </ul>
 
+    <!-- ADMINISTRATION SECTION -->
     <div class="nav-group-title">Administration</div>
-    <ul class="sub-nav-list">
-      <li class="sub-nav-item" data-tab="analytics">
-        <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>Analytics</span>
+    <ul class="sidebar-nav-list">
+      <li class="nav-item" data-tab="analytics">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Analytics</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="logs">
-        <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <span>Activity Logs</span>
+      <li class="nav-item" data-tab="logs">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span>Activity Logs</span>
+        </div>
       </li>
-      <li class="sub-nav-item" data-tab="settings">
-        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Settings</span>
+      <li class="nav-item" data-tab="settings">
+        <div class="nav-item-content">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Settings</span>
+        </div>
       </li>
     </ul>
   </aside>
 
-  <!-- 3. Main Workspace Area -->
+  <!-- Main Workspace Area -->
   <main class="workspace-canvas">
     
     <!-- Top Header Bar -->
     <header class="top-header">
-      <div>
-        <div class="welcome-msg" id="topGreeting">Welcome back, Administrator</div>
-      </div>
+      <div class="welcome-msg" id="topGreeting">Welcome back, Administrator</div>
 
       <div class="top-tools">
-        <select id="activeEventSelect" style="width:auto;min-width:210px;padding:0.4rem 0.65rem;font-size:0.85rem;font-weight:600;"></select>
+        <div class="event-picker-wrap">
+          <span class="event-picker-label">Current Event:</span>
+          <select id="activeEventSelect" style="width:auto;min-width:210px;padding:0.25rem 0.5rem;font-size:0.85rem;font-weight:600;border:none;background:transparent;"></select>
+        </div>
         <a id="btnViewActiveEvent" href="/rahul-priya" target="_blank" class="btn-outline">
           <svg class="icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           <span>Live Gallery</span>
@@ -703,15 +796,10 @@
 
     <div class="stage-inner">
 
-      <!-- PANEL 1: DASHBOARD (Image 3 Parity) -->
+      <!-- PANEL 1: DASHBOARD -->
       <section id="panel-dashboard">
         <div class="views-bar">
-          <div class="tabs-group">
-            <span class="tab-link active">
-              <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              Overview
-            </span>
-          </div>
+          <div class="views-bar-title">Platform Dashboard</div>
           <button class="btn-primary" onclick="openNewEventModal()">
             <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span>Create Event</span>
@@ -721,11 +809,11 @@
         <div class="grid-metrics">
           <div class="metric-box">
             <div class="metric-label">Total Events</div>
-            <div class="metric-value" id="metricEvents">2</div>
+            <div class="metric-value" id="metricEvents">3</div>
             <div class="metric-progress">
               <div class="metric-bar-fill" style="width:100%;background:var(--primary);"></div>
             </div>
-            <div class="metric-footer"><span id="metricActiveEvents">2</span> published galleries</div>
+            <div class="metric-footer"><span id="metricActiveEvents">3</span> published galleries</div>
           </div>
 
           <div class="metric-box">
@@ -784,7 +872,7 @@
       <!-- PANEL 2: EVENTS -->
       <section id="panel-events" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Events Registry</span>
+          <div class="views-bar-title">Events Registry</div>
           <button class="btn-primary" onclick="openNewEventModal()">
             <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span>New Event</span>
@@ -798,7 +886,7 @@
       <!-- PANEL 3: ALBUMS & FOLDERS -->
       <section id="panel-albums" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Albums & Ceremony Folders</span>
+          <div class="views-bar-title" id="albumsPanelTitle">Albums & Ceremony Folders</div>
           <button class="btn-primary" onclick="openNewAlbumModal()">
             <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span>New Album</span>
@@ -809,15 +897,19 @@
         </div>
       </section>
 
-      <!-- PANEL 4: PHOTO LIBRARY (Sorted by Name) -->
+      <!-- PANEL 4: PHOTO LIBRARY -->
       <section id="panel-photos" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Photo Library</span>
+          <div class="views-bar-title" id="photosPanelTitle">Photo Library</div>
+          <button class="btn-outline" onclick="switchTab('upload')">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Upload to this Event</span>
+          </button>
         </div>
 
         <div class="photo-toolbar">
           <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-            <label style="font-size:0.82rem;font-weight:600;">Album:</label>
+            <label style="font-size:0.82rem;font-weight:600;">Filter Folder:</label>
             <select id="filterAlbumSelect" style="width:auto;padding:0.35rem 0.6rem;font-size:0.85rem;"></select>
             <button id="selectAllBtn" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.8rem;">Select All</button>
             <button id="clearSelectBtn" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.8rem;" hidden>Clear</button>
@@ -841,7 +933,7 @@
       <!-- PANEL 5: PEOPLE DIRECTORY -->
       <section id="panel-people" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Identified People & Face Clusters</span>
+          <div class="views-bar-title">People & Face Search</div>
           <button class="btn-outline" id="reclusterPeopleBtn">
             <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             <span>Re-Cluster Faces</span>
@@ -855,9 +947,40 @@
       <!-- PANEL 6: UPLOAD MANAGER -->
       <section id="panel-upload" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Upload Manager</span>
+          <div class="views-bar-title">Upload Manager</div>
         </div>
 
+        <!-- Direct Upload Card with Quick Subfolder Chips -->
+        <div class="card-block">
+          <div class="card-block-header">
+            <span class="card-block-title">Direct Photo or ZIP Archive Upload</span>
+          </div>
+          <div class="card-block-body">
+            <div class="field">
+              <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Select Target Subfolder:</span>
+                <span id="activeUploadFolderLabel" style="font-size:0.8rem;color:var(--primary);font-weight:600;"></span>
+              </label>
+              <!-- Dynamic Subfolder Chips for One-Click Destination Selection -->
+              <div class="folder-chips-grid" id="uploadFolderChips">
+                <!-- Injected via JavaScript based on selected event -->
+              </div>
+              <select id="uploadTargetAlbumSelect" style="max-width:320px;" hidden></select>
+            </div>
+
+            <div style="border:2px dashed var(--line);border-radius:12px;padding:2.5rem 1rem;text-align:center;cursor:pointer;margin-bottom:1rem;background:#fbfcfd;" id="uploadDropArea">
+              <input type="file" id="directFileInput" multiple accept="image/*,.zip" style="display:none;">
+              <div style="margin-bottom:0.5rem;color:var(--muted);">
+                <svg style="width:36px;height:36px;stroke-width:1.5;stroke:currentColor;fill:none;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <strong style="font-size:0.95rem;color:var(--ink);">Drag & drop files or click to browse</strong>
+              <p style="font-size:0.8rem;color:var(--muted);margin-top:0.25rem;">Supports JPG, PNG, WEBP, and .ZIP archives</p>
+            </div>
+            <div id="uploadStatusText" style="font-size:0.85rem;font-weight:600;color:var(--emerald);"></div>
+          </div>
+        </div>
+
+        <!-- Google Drive Ingestion Card -->
         <div class="card-block">
           <div class="card-block-header">
             <span class="card-block-title">Google Drive Folder Ingestion (5TB Cloud Offload)</span>
@@ -879,33 +1002,12 @@
             </div>
           </div>
         </div>
-
-        <div class="card-block">
-          <div class="card-block-header">
-            <span class="card-block-title">Direct Photo or ZIP Archive Upload</span>
-          </div>
-          <div class="card-block-body">
-            <div class="field">
-              <label>Target Album</label>
-              <select id="uploadTargetAlbumSelect" style="max-width:320px;"></select>
-            </div>
-            <div style="border:2px dashed var(--line);border-radius:12px;padding:2.5rem 1rem;text-align:center;cursor:pointer;margin-bottom:1rem;" id="uploadDropArea">
-              <input type="file" id="directFileInput" multiple accept="image/*,.zip" style="display:none;">
-              <div style="margin-bottom:0.5rem;color:var(--muted);">
-                <svg style="width:36px;height:36px;stroke-width:1.5;stroke:currentColor;fill:none;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              </div>
-              <strong style="font-size:0.95rem;color:var(--ink);">Drag & drop files or click to browse</strong>
-              <p style="font-size:0.8rem;color:var(--muted);margin-top:0.25rem;">Supports JPG, PNG, WEBP, and .ZIP archives</p>
-            </div>
-            <div id="uploadStatusText" style="font-size:0.85rem;font-weight:600;color:var(--emerald);"></div>
-          </div>
-        </div>
       </section>
 
       <!-- PANEL 7: STORAGE MANAGEMENT -->
       <section id="panel-storage" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Storage Architecture</span>
+          <div class="views-bar-title">Storage Management</div>
         </div>
 
         <div class="grid-metrics">
@@ -930,7 +1032,7 @@
       <!-- PANEL 8: ANALYTICS -->
       <section id="panel-analytics" hidden>
         <div class="views-bar">
-          <span class="tab-link active">Platform Analytics</span>
+          <div class="views-bar-title">Analytics</div>
         </div>
 
         <div class="grid-metrics">
@@ -960,7 +1062,7 @@
       <!-- PANEL 9: ACTIVITY LOGS -->
       <section id="panel-logs" hidden>
         <div class="views-bar">
-          <span class="tab-link active">System Console & Indexer Logs</span>
+          <div class="views-bar-title">Activity Logs</div>
           <button class="btn-outline" id="refreshLogsBtn">
             <svg class="icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             <span>Refresh</span>
@@ -972,7 +1074,7 @@
       <!-- PANEL 10: SETTINGS -->
       <section id="panel-settings" hidden>
         <div class="views-bar">
-          <span class="tab-link active">System Settings</span>
+          <div class="views-bar-title">Settings</div>
         </div>
 
         <div class="card-block">
@@ -1050,19 +1152,19 @@
 <div id="albumModal" class="modal-backdrop" hidden>
   <div class="modal-card">
     <button class="modal-close" onclick="closeModal('albumModal')">&times;</button>
-    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:0.35rem;">Create New Album</h2>
-    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Add a program or category (e.g. Haldi, Mehendi, Reception, Pre-Wedding).</p>
+    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:0.35rem;">Create New Album / Folder</h2>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Add a program or category folder (e.g. Haldi, Mehendi, Reception, Pre-Wedding).</p>
     
     <form id="createAlbumForm">
       <div class="field">
-        <label>Album Name</label>
+        <label>Album / Folder Name</label>
         <input type="text" id="albumNameInput" placeholder="e.g. Pre-Wedding Shoot" required>
       </div>
       <div class="field">
-        <label>Album Slug</label>
+        <label>Folder Slug</label>
         <input type="text" id="albumSlugInput" placeholder="e.g. pre-wedding" required>
       </div>
-      <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.7rem;">Create Album</button>
+      <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.7rem;">Create Folder</button>
     </form>
   </div>
 </div>
@@ -1090,15 +1192,15 @@ const $ = id => document.getElementById(id);
 let activeSlug = 'rahul-priya';
 let allEvents = [];
 let allAlbums = [];
+let currentEvent = null;
 let selectedPhotoIds = new Set();
+let activeFilterAlbumId = '';
+let activeUploadAlbumSlug = '';
 
 // Navigation Tabs Handling
 function switchTab(tabName) {
-  // Sync both Rail buttons and Sub-Sidebar items
-  document.querySelectorAll('.rail-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-  });
-  document.querySelectorAll('.sub-nav-item').forEach(item => {
+  // Sync Sidebar active states
+  document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.getAttribute('data-tab') === tabName);
   });
 
@@ -1110,7 +1212,7 @@ function switchTab(tabName) {
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'events') loadEvents();
   if (tabName === 'albums') loadAlbums();
-  if (tabName === 'photos') loadPhotos();
+  if (tabName === 'photos') loadPhotos(activeFilterAlbumId);
   if (tabName === 'people') loadPeople();
   if (tabName === 'upload') setupUploadTab();
   if (tabName === 'storage') loadStorage();
@@ -1118,8 +1220,12 @@ function switchTab(tabName) {
   if (tabName === 'logs') loadLogs();
 }
 
-document.querySelectorAll('.rail-btn, .sub-nav-item').forEach(el => {
-  el.addEventListener('click', () => switchTab(el.getAttribute('data-tab')));
+document.querySelectorAll('.sidebar-nav-list > .nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    const tab = el.getAttribute('data-tab');
+    if (tab === 'photos') activeFilterAlbumId = ''; // Reset album filter when clicking Photo Library directly
+    switchTab(tab);
+  });
 });
 
 function openModal(id) { $(id).hidden = false; }
@@ -1140,6 +1246,7 @@ async function checkAuth() {
       $('authView').hidden = true;
       $('appShell').hidden = false;
       populateEventSelector(data.events || []);
+      await setEventWorkspace(activeSlug, false);
       loadDashboard();
     } else {
       $('authView').hidden = false;
@@ -1182,7 +1289,7 @@ $('logoutBtn').addEventListener('click', async () => {
   location.reload();
 });
 
-// Event Picker
+// Event Selector & Workspace Management
 function populateEventSelector(events) {
   allEvents = events;
   const sel = $('activeEventSelect');
@@ -1200,15 +1307,135 @@ function populateEventSelector(events) {
   updateActiveEventButtons();
 }
 
-$('activeEventSelect').addEventListener('change', e => {
-  activeSlug = e.target.value;
-  updateActiveEventButtons();
-  const activeTab = document.querySelector('.sub-nav-item.active')?.getAttribute('data-tab') || 'dashboard';
-  switchTab(activeTab);
+$('activeEventSelect').addEventListener('change', async e => {
+  await setEventWorkspace(e.target.value, true);
 });
 
 function updateActiveEventButtons() {
   $('btnViewActiveEvent').href = `/${activeSlug}`;
+}
+
+async function setEventWorkspace(slug, refreshActiveTab = true) {
+  activeSlug = slug;
+  $('activeEventSelect').value = slug;
+  updateActiveEventButtons();
+
+  // Fetch event workspace details
+  try {
+    const res = await fetch(`/api/admin/events/${slug}`);
+    if (res.ok) {
+      const d = await res.json();
+      currentEvent = d.event;
+      allAlbums = d.albums || [];
+      $('sidebarAlbumCount').textContent = allAlbums.length;
+
+      // Render dynamic sidebar subfolders
+      renderSidebarSubfolders();
+
+      // Render upload manager targets
+      renderUploadTargets();
+
+      // Update panel headers
+      const evName = currentEvent ? currentEvent.name : slug;
+      $('albumsPanelTitle').textContent = `Albums & Folders — ${evName}`;
+      $('photosPanelTitle').textContent = `Photo Library — ${evName}`;
+
+      if (refreshActiveTab) {
+        const activeTab = document.querySelector('.sidebar-nav-list > .nav-item.active')?.getAttribute('data-tab') || 'albums';
+        switchTab(activeTab);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load event workspace:', e);
+  }
+}
+
+// Render Dynamic Subfolders in Sidebar
+function renderSidebarSubfolders() {
+  const tree = $('sidebarSubfoldersList');
+  tree.replaceChildren();
+
+  if (allAlbums.length === 0) {
+    const empty = document.createElement('li');
+    empty.style.padding = '0.2rem 0.5rem';
+    empty.style.color = '#9ca3af';
+    empty.style.fontSize = '0.75rem';
+    empty.textContent = 'No folders yet';
+    tree.append(empty);
+  } else {
+    for (const a of allAlbums) {
+      const li = document.createElement('li');
+      li.className = 'subfolder-item';
+      li.id = `subfolder-item-${a.id}`;
+      li.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <svg class="icon-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span style="overflow:hidden;text-overflow:ellipsis;">${a.name}</span>
+        </div>
+        <span class="subfolder-badge">${a.photo_count || 0}</span>
+      `;
+      li.addEventListener('click', () => {
+        openAlbumPhotos(a.id, a.name);
+      });
+      tree.append(li);
+    }
+  }
+
+  // Add subtle "+ New Folder" link at bottom
+  const addLink = document.createElement('li');
+  addLink.className = 'subfolder-create-link';
+  addLink.innerHTML = `
+    <svg class="icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>New Folder</span>
+  `;
+  addLink.addEventListener('click', openNewAlbumModal);
+  tree.append(addLink);
+}
+
+// Render Upload Targets in Sidebar and Upload Panel
+function renderUploadTargets() {
+  const tree = $('sidebarUploadTargetsList');
+  tree.replaceChildren();
+
+  for (const a of allAlbums) {
+    const li = document.createElement('li');
+    li.className = 'subfolder-item';
+    li.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <svg class="icon-sm" viewBox="0 0 24 24"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;">${a.name}</span>
+      </div>
+    `;
+    li.addEventListener('click', () => {
+      selectUploadTargetAlbum(a.slug, a.name);
+      switchTab('upload');
+    });
+    tree.append(li);
+  }
+
+  // Setup chips in Upload Manager panel
+  setupUploadTab();
+}
+
+function openAlbumPhotos(albumId, albumName) {
+  activeFilterAlbumId = albumId;
+  switchTab('photos');
+  
+  // Highlight active subfolder in sidebar
+  document.querySelectorAll('.subfolder-item').forEach(el => el.classList.remove('active'));
+  const activeLi = $(`subfolder-item-${albumId}`);
+  if (activeLi) activeLi.classList.add('active');
+}
+
+function selectUploadTargetAlbum(slug, name) {
+  activeUploadAlbumSlug = slug;
+  $('uploadTargetAlbumSelect').value = slug;
+  $('activeUploadFolderLabel').textContent = `Destination: ${name} (slug: ${slug})`;
+  
+  // Highlight active chip
+  document.querySelectorAll('.folder-chip').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('data-slug') === slug);
+  });
 }
 
 $('btnFastIndexActive').addEventListener('click', async () => {
@@ -1250,10 +1477,10 @@ async function loadEvents() {
           <span class="badge ${ev.status === 'published' ? 'badge-published' : 'badge-draft'}">${ev.status}</span>
         </div>
         <div style="color:var(--muted);font-family:monospace;font-size:0.8rem;margin-top:0.2rem;">/${ev.slug}</div>
-        <p style="font-size:0.82rem;color:var(--muted);margin:0.5rem 0 0.8rem;">${ev.description || 'No description.'}</p>
+        <p style="font-size:0.82rem;color:var(--muted);margin:0.5rem 0 0.8rem;">${ev.description || 'No description provided.'}</p>
         <div style="display:flex;gap:0.5rem;width:100%;">
-          <button class="btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem;" onclick="selectEventWorkspace('${ev.slug}')">Workspace</button>
-          <a href="/${ev.slug}" target="_blank" class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.8rem;">View Gallery ↗</a>
+          <button class="btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem;" onclick="selectEventWorkspace('${ev.slug}')">Open Workspace</button>
+          <a href="/${ev.slug}" target="_blank" class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.8rem;">Live Gallery ↗</a>
         </div>
       `;
       grid.append(card);
@@ -1261,10 +1488,8 @@ async function loadEvents() {
   } catch (e) {}
 }
 
-function selectEventWorkspace(slug) {
-  activeSlug = slug;
-  $('activeEventSelect').value = slug;
-  updateActiveEventButtons();
+async function selectEventWorkspace(slug) {
+  await setEventWorkspace(slug, false);
   switchTab('albums');
 }
 
@@ -1275,11 +1500,15 @@ async function loadAlbums() {
     if (!res.ok) return;
     const d = await res.json();
     allAlbums = d.albums || [];
+    currentEvent = d.event;
+    $('sidebarAlbumCount').textContent = allAlbums.length;
+    renderSidebarSubfolders();
+
     const grid = $('albumsGrid');
     grid.replaceChildren();
 
     if (allAlbums.length === 0) {
-      grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No albums found. Click "New Album" to create one.</div>';
+      grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No albums found for this event. Click "New Album" to create one.</div>';
       return;
     }
 
@@ -1294,7 +1523,7 @@ async function loadAlbums() {
           <div style="font-size:0.78rem;color:var(--muted);font-family:monospace;">slug: ${a.slug}</div>
           <div style="font-size:0.82rem;color:var(--primary);font-weight:600;margin-top:0.2rem;">${a.photo_count || 0} photos</div>
           <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
-            <button class="btn-primary" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="filterPhotosByAlbum(${a.id})">Browse</button>
+            <button class="btn-primary" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="openAlbumPhotos(${a.id}, '${a.name}')">Browse</button>
             <button class="btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;color:var(--err);" onclick="deleteAlbum(${a.id})">Delete</button>
           </div>
         </div>
@@ -1307,6 +1536,7 @@ async function loadAlbums() {
 async function deleteAlbum(albumId) {
   if (!confirm('Delete this album? Photos will remain unassigned.')) return;
   await fetch(`/api/admin/events/${activeSlug}/albums/${albumId}`, { method: 'DELETE' });
+  await setEventWorkspace(activeSlug, false);
   loadAlbums();
 }
 
@@ -1322,7 +1552,7 @@ async function loadPhotos(filterAlbumId = '') {
 
   const defOpt = document.createElement('option');
   defOpt.value = '';
-  defOpt.textContent = 'All Albums';
+  defOpt.textContent = 'All Folders / Albums';
   fSel.append(defOpt);
 
   for (const a of allAlbums) {
@@ -1389,13 +1619,17 @@ async function loadPhotos(filterAlbumId = '') {
   } catch (e) {}
 }
 
-function filterPhotosByAlbum(albumId) {
-  switchTab('photos');
-  $('filterAlbumSelect').value = albumId;
-  loadPhotos(albumId);
-}
-
-$('filterAlbumSelect').addEventListener('change', e => loadPhotos(e.target.value));
+$('filterAlbumSelect').addEventListener('change', e => {
+  activeFilterAlbumId = e.target.value;
+  loadPhotos(activeFilterAlbumId);
+  
+  // Sync sidebar active subfolder
+  document.querySelectorAll('.subfolder-item').forEach(el => el.classList.remove('active'));
+  if (activeFilterAlbumId) {
+    const activeLi = $(`subfolder-item-${activeFilterAlbumId}`);
+    if (activeLi) activeLi.classList.add('active');
+  }
+});
 
 function updateBulkToolbar() {
   const count = selectedPhotoIds.size;
@@ -1434,6 +1668,7 @@ $('bulkMoveBtn').addEventListener('click', async () => {
     })
   });
   loadPhotos($('filterAlbumSelect').value);
+  await setEventWorkspace(activeSlug, false);
 });
 
 $('bulkFeatureBtn').addEventListener('click', () => runBulkAction('feature'));
@@ -1452,6 +1687,7 @@ async function runBulkAction(action) {
     })
   });
   loadPhotos($('filterAlbumSelect').value);
+  await setEventWorkspace(activeSlug, false);
 }
 
 async function setAsCover(albumId, relPath) {
@@ -1552,16 +1788,59 @@ async function viewPersonPhotos(personId) {
   }
 }
 
-// Upload Manager
+// Upload Manager Setup
 function setupUploadTab() {
   const sel = $('uploadTargetAlbumSelect');
   sel.replaceChildren();
+
+  const chipsContainer = $('uploadFolderChips');
+  chipsContainer.replaceChildren();
+
+  if (allAlbums.length === 0) {
+    chipsContainer.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">No folders found for this event. Click "+ New Folder" to add one.</div>';
+    return;
+  }
+
+  // Set default upload album if none active
+  if (!activeUploadAlbumSlug || !allAlbums.some(a => a.slug === activeUploadAlbumSlug)) {
+    activeUploadAlbumSlug = allAlbums[0].slug;
+  }
+
   for (const a of allAlbums) {
     const opt = document.createElement('option');
     opt.value = a.slug;
     opt.textContent = a.name;
+    if (a.slug === activeUploadAlbumSlug) opt.selected = true;
     sel.append(opt);
+
+    // Create chip
+    const chip = document.createElement('div');
+    chip.className = `folder-chip ${a.slug === activeUploadAlbumSlug ? 'active' : ''}`;
+    chip.setAttribute('data-slug', a.slug);
+    chip.innerHTML = `
+      <svg class="icon-sm" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>${a.name}</span>
+      <span class="chip-badge">${a.photo_count || 0}</span>
+    `;
+    chip.addEventListener('click', () => {
+      selectUploadTargetAlbum(a.slug, a.name);
+    });
+    chipsContainer.append(chip);
   }
+
+  // Add a "+ New Folder" chip at the end
+  const addChip = document.createElement('div');
+  addChip.className = 'folder-chip';
+  addChip.style.borderStyle = 'dashed';
+  addChip.innerHTML = `
+    <svg class="icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>+ New Folder</span>
+  `;
+  addChip.addEventListener('click', openNewAlbumModal);
+  chipsContainer.append(addChip);
+
+  const activeAlbum = allAlbums.find(a => a.slug === activeUploadAlbumSlug) || allAlbums[0];
+  $('activeUploadFolderLabel').textContent = `Destination: ${activeAlbum.name} (slug: ${activeAlbum.slug})`;
 }
 
 $('startGdriveSyncBtn').addEventListener('click', async () => {
@@ -1593,19 +1872,20 @@ $('uploadDropArea').addEventListener('click', () => $('directFileInput').click()
 $('directFileInput').addEventListener('change', async () => {
   const files = $('directFileInput').files;
   if (!files || files.length === 0) return;
-  const albumSlug = $('uploadTargetAlbumSelect').value || 'highlights';
+  const albumSlug = activeUploadAlbumSlug || $('uploadTargetAlbumSelect').value || 'highlights';
 
   const fd = new FormData();
   for (const f of files) fd.append('files', f);
   fd.append('album_slug', albumSlug);
   fd.append('auto_index', 'true');
 
-  $('uploadStatusText').textContent = `Uploading ${files.length} files...`;
+  $('uploadStatusText').textContent = `Uploading ${files.length} files to '${albumSlug}'...`;
   try {
     const res = await fetch(`/api/admin/events/${activeSlug}/upload`, { method: 'POST', body: fd });
     const j = await res.json();
     if (res.ok) {
-      $('uploadStatusText').textContent = `Saved ${j.saved_count} photos. Indexing initiated.`;
+      $('uploadStatusText').textContent = `Saved ${j.saved_count} photos to '${albumSlug}'. Indexing initiated.`;
+      await setEventWorkspace(activeSlug, false);
       loadAlbums();
     } else {
       $('uploadStatusText').textContent = j.detail || 'Upload failed';
@@ -1690,6 +1970,7 @@ $('createAlbumForm').addEventListener('submit', async e => {
   });
   if (res.ok) {
     closeModal('albumModal');
+    await setEventWorkspace(activeSlug, false);
     loadAlbums();
   } else {
     alert('Error creating album.');
