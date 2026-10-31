@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Portal - Wedding Photo Finder</title>
+<style>
+  :root {
+    --bg: #f4f7f5; --ink: #14231e; --muted: #5a6b64; --line: #d5ded9;
+    --accent: #0f5c4d; --accent-hover: #0a4338; --accent-ink: #ffffff;
+    --card: #ffffff; --card-header: #fafcfb; --err: #c5221f; --err-bg: #fce8e6;
+    --success: #137333; --success-bg: #e6f4ea; --warn: #b06000; --warn-bg: #fef7e0;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1613; --ink: #e8f0ec; --muted: #97aaa2; --line: #22332a;
+      --accent: #5fd3b8; --accent-hover: #4ec2a7; --accent-ink: #06201a;
+      --card: #15221d; --card-header: #192822; --err: #f28b82; --err-bg: #3c1e1e;
+      --success: #81c995; --success-bg: #132d1e; --warn: #fdd663; --warn-bg: #332b13;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font);
+    line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 0.85rem 1.5rem; display: flex; justify-content: space-between; align-items: center;
+  }
+  .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+  .brand-badge { background: var(--accent); color: var(--accent-ink); font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 99px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+  .header-actions { display: flex; align-items: center; gap: 0.8rem; }
+  .btn-outline {
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+    padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.88rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600;
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .container { max-width: 1000px; width: 100%; margin: 1.5rem auto 3rem; padding: 0 1rem; }
+
+  /* Login Card */
+  .auth-wrap {
+    min-height: calc(85vh - 70px); display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 2.2rem; max-width: 420px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+  }
+  .login-card h1 { font-size: 1.45rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .login-card p { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.5rem; }
+  
+  /* Form Inputs with :user-invalid */
+  .field { margin-bottom: 1.25rem; position: relative; }
+  .field label { display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; }
+  .field .hint { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 0.35rem; }
+  input[type="password"], input[type="text"] {
+    width: 100%; padding: 0.75rem 0.9rem; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, background-color 0.15s;
+  }
+  input[type="password"]:focus, input[type="text"]:focus {
+    outline: none; border-color: var(--accent);
+  }
+  input:user-invalid {
+    border-color: var(--err); background-color: var(--err-bg);
+  }
+  input:user-valid {
+    border-color: var(--success);
+  }
+  .error-msg {
+    display: none; color: var(--err); font-size: 0.82rem; margin-top: 0.3rem;
+  }
+  input:user-invalid + .error-msg { display: block; }
+
+  .btn-primary {
+    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px;
+    padding: 0.75rem 1.4rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .alert {
+    padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.88rem; margin-top: 1rem; display: none;
+  }
+  .alert.show { display: block; }
+  .alert-err { background: var(--err-bg); color: var(--err); border: 1px solid var(--err); }
+  .alert-ok { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+
+  /* Dashboard Cards */
+  .grid-metrics {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem;
+  }
+  .stat-label { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+  .stat-val { font-size: 2.1rem; font-weight: 700; margin: 0.3rem 0; line-height: 1; }
+  .stat-sub { font-size: 0.82rem; color: var(--muted); }
+
+  /* Section Card */
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
+  }
+  .card-head {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--card-header);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-head h2 { font-size: 1.05rem; font-weight: 700; }
+  .card-body { padding: 1.25rem; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); padding-bottom: 0.6rem; }
+  .tab-btn {
+    background: transparent; border: 0; color: var(--muted); font-size: 0.92rem; font-weight: 600;
+    padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
+
+  /* Drag Drop Zone */
+  .drop-zone {
+    border: 2px dashed var(--line); border-radius: 10px; padding: 2rem 1rem;
+    text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  }
+  .drop-zone.dragover { border-color: var(--accent); background: rgba(15,92,77,0.04); }
+  .drop-zone input { display: none; }
+  .drop-icon { font-size: 2.2rem; }
+
+  /* Terminal Console */
+  .console {
+    background: #0f1614; color: #a4e5d5; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.82rem; border-radius: 8px; padding: 0.9rem; height: 260px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word; line-height: 1.45; border: 1px solid #1f2e28;
+  }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem;
+    border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+  }
+  .tag-idle { background: var(--success-bg); color: var(--success); }
+  .tag-busy { background: var(--warn-bg); color: var(--warn); }
+
+  .folder-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+  .folder-item {
+    display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.8rem;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.88rem;
+  }
+  .folder-item code { font-weight: 600; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:0.8rem;">
+    <a href="/" class="brand">
+      📸 Wedding Photos
+    </a>
+    <span class="brand-badge">Admin</span>
+  </div>
+  <div class="header-actions">
+    <a href="/" class="btn-outline" target="_blank">View Site ↗</a>
+    <button id="logoutBtn" class="btn-outline" hidden>Sign Out</button>
+  </div>
+</header>
+
+<!-- Auth View -->
+<div id="authView" class="container auth-wrap">
+  <div class="login-card">
+    <div style="font-size:2.2rem;margin-bottom:0.6rem;">🔐</div>
+    <h1>Admin Access</h1>
+    <p>Enter the security key to manage wedding photos, imports, and face indexing.</p>
+    
+    <form id="loginForm">
+      <div class="field">
+        <label for="adminKey">Security Key</label>
+        <span id="key-hint" class="hint">Secret passkey provided by the administrator</span>
+        <input
+          type="password"
+          id="adminKey"
+          name="adminKey"
+          required
+          autocomplete="current-password"
+          placeholder="••••••••••••"
+          aria-describedby="key-hint"
+        >
+        <div class="error-msg">Please enter a valid key.</div>
+      </div>
+      <button type="submit" id="loginBtn" class="btn-primary">Unlock Dashboard</button>
+      <div id="loginAlert" class="alert alert-err" role="alert"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Main Admin Dashboard View -->
+<main id="dashView" class="container" hidden>
+  
+  <!-- Metrics -->
+  <div class="grid-metrics">
+    <div class="stat-card">
+      <div class="stat-label">Total Photos</div>
+      <div class="stat-val" id="statPhotos">0</div>
+      <div class="stat-sub" id="statFolders">0 subfolders in /photos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Faces Indexed</div>
+      <div class="stat-val" id="statFaces" style="color:var(--accent);">0</div>
+      <div class="stat-sub" id="statIndexedPhotos">0 photos indexed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">System State</div>
+      <div style="margin: 0.5rem 0;">
+        <span id="taskStatusTag" class="tag tag-idle">Ready</span>
+      </div>
+      <div class="stat-sub" id="taskMessage">All photos ready for matching</div>
+    </div>
+  </div>
+
+  <!-- Upload & Import Card -->
+  <div class="card">
+    <div class="card-head">
+      <h2>Add Photos to Library</h2>
+      <span style="font-size:0.8rem;color:var(--muted);">Files save directly to VPS storage</span>
+    </div>
+    <div class="card-body">
+      <div class="tabs">
+        <button class="tab-btn active" id="tabUploadBtn">Direct Upload (Photos & ZIP)</button>
+        <button class="tab-btn" id="tabGdriveBtn">Google Drive Link Import</button>
+      </div>
+
+      <!-- Tab 1: Direct File & ZIP Upload -->
+      <div id="tabUpload">
+        <div style="margin-bottom:1rem;display:flex;gap:1rem;flex-wrap:wrap;">
+          <div style="flex:1;min-width:220px;">
+            <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.3rem;" for="destFolder">
+              Destination Subfolder
+            </label>
+            <input type="text" id="destFolder" value="29-10-26" placeholder="e.g. 29-10-26 or reception">
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:0.5rem;">
+            <label style="font-size:0.85rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+              <input type="checkbox" id="autoIndex" checked style="accent-color:var(--accent);">
+              Auto-run face indexing after upload
+            </label>
+          </div>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" multiple accept="image/*,.zip">
+          <div class="drop-icon">📁</div>
+          <strong style="font-size:1rem;">Click to choose photos or a .ZIP archive</strong>
+          <span style="color:var(--muted);font-size:0.84rem;">Supports JPG, PNG, WEBP, and .ZIP archives (auto-extracted)</span>
+        </div>
+
+        <div id="uploadStatus" class="alert alert-ok" style="margin-top:1rem;"></div>
+      </div>
+
+      <!-- Tab 2: Google Drive Import -->
+      <div id="tabGdrive" hidden>
+        <div class="field">
+          <label for="gdriveUrl">Google Drive Shared Link</label>
+          <span class="hint">Public or shared link with "Anyone with the link can view" enabled</span>
+          <input type="text" id="gdriveUrl" placeholder="https://drive.google.com/drive/folders/...">
+        </div>
+        <div class="field">
+          <label for="gdriveFolder">Save Into Folder Name</label>
+          <input type="text" id="gdriveFolder" value="wedding_gdrive" placeholder="e.g. wedding_gdrive">
+        </div>
+        <button type="button" id="startGdriveBtn" class="btn-primary" style="max-width:260px;">
+          ⬇️ Import from Google Drive
+        </button>
+        <div id="gdriveAlert" class="alert alert-ok" style="margin-top:1rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Face Indexer & Live Logs Card -->
+  <div class="card">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:0.8rem;">
+        <h2>Face Indexer & Live Logs</h2>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button id="triggerIndexBtn" class="btn-primary" style="padding:0.45rem 1rem;font-size:0.85rem;width:auto;">
+          ⚡ Run Face Indexing
+        </button>
+        <button id="refreshLogsBtn" class="btn-outline" style="padding:0.45rem 0.8rem;font-size:0.85rem;">
+          ↻ Refresh Logs
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="console" id="logConsole">Connecting to log stream...</div>
+    </div>
+  </div>
+
+  <!-- Photos Folders Card -->
+  <div class="card">
+    <div class="card-head">
+      <h2>Storage Directory Breakdown</h2>
+      <span style="font-size:0.82rem;color:var(--muted);">Host path: <code>/opt/photo-finder-storage/photos</code></span>
+    </div>
+    <div class="card-body">
+      <ul class="folder-list" id="folderList">
+        <li style="color:var(--muted);font-size:0.9rem;">Loading folders...</li>
+      </ul>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let authToken = localStorage.getItem('admin_token') || '';
+
+function setAlert(el, msg, isErr = false) {
+  el.textContent = msg;
+  el.className = 'alert show ' + (isErr ? 'alert-err' : 'alert-ok');
+}
+
+// Headers helper
+function authHeaders(extra = {}) {
+  return { 'X-Admin-Token': authToken, ...extra };
+}
+
+// Check session on load
+async function checkAuth() {
+  if (!authToken) {
+    showLogin();
+    return;
+  }
+  try {
+    const res = await fetch('/api/admin/status', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      showDashboard(data);
+    } else {
+      localStorage.removeItem('admin_token');
+      authToken = '';
+      showLogin();
+    }
+  } catch (e) {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  $('authView').hidden = false;
+  $('dashView').hidden = true;
+  $('logoutBtn').hidden = true;
+}
+
+function showDashboard(initialData) {
+  $('authView').hidden = true;
+  $('dashView').hidden = false;
+  $('logoutBtn').hidden = false;
+  renderStatus(initialData);
+  fetchLogs();
+}
+
+// Login submission
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const key = $('adminKey').value.trim();
+  const alertEl = $('loginAlert');
+  alertEl.className = 'alert';
+  $('loginBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Login failed');
+    
+    authToken = j.token;
+    localStorage.setItem('admin_token', authToken);
+    checkAuth();
+  } catch (err) {
+    setAlert(alertEl, err.message, true);
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+});
+
+// Logout
+$('logoutBtn').addEventListener('click', async () => {
+  try {
+    await fetch('/api/admin/logout', { method: 'POST', headers: authHeaders() });
+  } catch (e) {}
+  localStorage.removeItem('admin_token');
+  authToken = '';
+  showLogin();
+});
+
+// Render dashboard stats
+function renderStatus(data) {
+  if (!data) return;
+  $('statPhotos').textContent = data.total_photos || 0;
+  $('statFaces').textContent = data.indexed_faces || 0;
+  $('statIndexedPhotos').textContent = `${data.indexed_photos || 0} photos indexed`;
+  $('statFolders').textContent = `${data.folders?.length || 0} subfolders in /photos`;
+
+  const task = data.current_task || {};
+  const isBusy = task.status === 'running';
+  $('taskStatusTag').textContent = isBusy ? 'Busy' : 'Ready';
+  $('taskStatusTag').className = 'tag ' + (isBusy ? 'tag-busy' : 'tag-idle');
+  $('taskMessage').textContent = task.message || (isBusy ? 'Processing in background...' : 'Ready');
+  $('triggerIndexBtn').disabled = isBusy;
+
+  // Render folder breakdown
+  const list = $('folderList');
+  list.replaceChildren();
+  if (!data.folders || data.folders.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'No photos uploaded yet.';
+    li.style.color = 'var(--muted)';
+    list.append(li);
+  } else {
+    for (const f of data.folders) {
+      const li = document.createElement('li');
+      li.className = 'folder-item';
+      li.innerHTML = `<span>📁 <code>${f.name}</code></span><span style="font-weight:600;">${f.count} photos</span>`;
+      list.append(li);
+    }
+  }
+}
+
+// Polling status and logs
+async function fetchStatus() {
+  if (!authToken) return;
+  try {
+    const res = await fetch('/api/admin/status', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      renderStatus(data);
+    }
+  } catch (e) {}
+}
+
+async function fetchLogs() {
+  if (!authToken) return;
+  try {
+    const res = await fetch('/api/admin/logs', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      const consoleEl = $('logConsole');
+      if (data.logs && data.logs.length > 0) {
+        consoleEl.textContent = data.logs.join('\n');
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+    }
+  } catch (e) {}
+}
+
+setInterval(() => {
+  if (authToken && !$('dashView').hidden) {
+    fetchStatus();
+    fetchLogs();
+  }
+}, 3000);
+
+// Tab switching
+$('tabUploadBtn').addEventListener('click', () => {
+  $('tabUploadBtn').classList.add('active');
+  $('tabGdriveBtn').classList.remove('active');
+  $('tabUpload').hidden = false;
+  $('tabGdrive').hidden = true;
+});
+$('tabGdriveBtn').addEventListener('click', () => {
+  $('tabGdriveBtn').classList.add('active');
+  $('tabUploadBtn').classList.remove('active');
+  $('tabUpload').hidden = true;
+  $('tabGdrive').hidden = false;
+});
+
+// Direct Upload Drag & Drop
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length > 0) {
+    handleFileUpload(e.dataTransfer.files);
+  }
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) {
+    handleFileUpload(fileInput.files);
+  }
+});
+
+async function handleFileUpload(files) {
+  const statusEl = $('uploadStatus');
+  const folder = $('destFolder').value.trim() || 'uploads';
+  const autoIndex = $('autoIndex').checked;
+  setAlert(statusEl, `Uploading ${files.length} file(s)... please wait.`);
+
+  const fd = new FormData();
+  fd.append('folder', folder);
+  fd.append('auto_index', autoIndex ? 'true' : 'false');
+  for (const f of files) {
+    fd.append('files', f);
+  }
+
+  try {
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fd
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Upload failed');
+    setAlert(statusEl, `Successfully processed ${j.saved_count} photos into folder '${j.folder}'. ${autoIndex ? 'Indexing started!' : ''}`);
+    fetchStatus();
+    fetchLogs();
+  } catch (err) {
+    setAlert(statusEl, err.message, true);
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+// Google Drive Import
+$('startGdriveBtn').addEventListener('click', async () => {
+  const url = $('gdriveUrl').value.trim();
+  const folder = $('gdriveFolder').value.trim() || 'gdrive_photos';
+  const alertEl = $('gdriveAlert');
+  if (!url) {
+    setAlert(alertEl, 'Please enter a valid Google Drive URL.', true);
+    return;
+  }
+  setAlert(alertEl, 'Starting Google Drive import... check logs below.');
+  $('startGdriveBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/admin/gdrive', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ url, folder })
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Failed to start import');
+    setAlert(alertEl, `Import started into folder '${j.folder}'. Facial indexing will run automatically once download completes!`);
+    fetchStatus();
+    fetchLogs();
+  } catch (err) {
+    setAlert(alertEl, err.message, true);
+  } finally {
+    $('startGdriveBtn').disabled = false;
+  }
+});
+
+// Trigger indexing manually
+$('triggerIndexBtn').addEventListener('click', async () => {
+  $('triggerIndexBtn').disabled = true;
+  try {
+    const res = await fetch('/api/admin/index', { method: 'POST', headers: authHeaders() });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.detail || 'Failed to trigger indexing');
+    fetchStatus();
+    fetchLogs();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+$('refreshLogsBtn').addEventListener('click', fetchLogs);
+
+// Initialize on page load
+checkAuth();
+</script>
+</body>
+</html>
