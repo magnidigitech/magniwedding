@@ -13,6 +13,8 @@ STORAGE = Path(os.environ.get("STORAGE_DIR", BASE / "storage"))
 PHOTOS = STORAGE / "photos"
 DATA = STORAGE / "data"
 MODELS = STORAGE / "models"
+MODELS.mkdir(parents=True, exist_ok=True)
+DATA.mkdir(parents=True, exist_ok=True)
 THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.40"))  # raise = stricter
 MAX_RESULTS = 300
 MAX_UPLOAD = 10 * 1024 * 1024
