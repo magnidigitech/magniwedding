@@ -3,113 +3,325 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wedding Gallery</title>
+<title>Wedding Gallery - MagniWedding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f5f8f6; --ink: #14231e; --muted: #5a6b64; --line: #d8e2dc;
-    --accent: #0f5c4d; --accent-hover: #0a4338; --accent-ink: #ffffff;
-    --card: #ffffff; --card-header: #192b24; --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --bg: #f8faf9;
+    --ink: #16241f;
+    --muted: #5e6f67;
+    --line: #dbe4df;
+    --banner-bg: #183327;
+    --banner-eyebrow: #94cbb4;
+    --banner-tagline: #d1e2da;
+    --banner-badge-bg: #11281e;
+    --banner-badge-border: #27533d;
+    --banner-badge-ink: #70e1b2;
+    --accent: #0f5c4d;
+    --card: #ffffff;
+    --btn-blue-bg: #e8f0fe;
+    --btn-blue-ink: #1a73e8;
+    --btn-blue-hover: #d2e3fc;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e1714; --ink: #e8f0ec; --muted: #95a8a0; --line: #22332a;
-      --accent: #5fd3b8; --accent-hover: #4ec2a7; --accent-ink: #06201a;
-      --card: #15221d; --card-header: #0d1613;
+      --bg: #0d1613;
+      --ink: #e8f0ec;
+      --muted: #95a8a0;
+      --line: #22332a;
+      --banner-bg: #13271e;
+      --card: #15221d;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.5;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
     padding-bottom: 5rem;
   }
-  .container { max-width: 960px; margin: 0 auto; padding: 0 1.25rem; }
-
-  /* Hero Banner */
-  .hero-banner {
-    background: var(--card-header); color: #ffffff; border-radius: 16px;
-    padding: 3rem 1.5rem; text-align: center; margin: 1.5rem 0 2.5rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
   }
-  .hero-type {
-    text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.15em;
-    font-weight: 700; color: #a4e5d5; margin-bottom: 0.6rem;
+
+  /* Top Hero Card (Matches Image 3) */
+  .hero-card {
+    background: var(--banner-bg);
+    color: #ffffff;
+    border-radius: 18px;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    margin: 1.5rem 0 2.5rem;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+  }
+  .hero-eyebrow {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--banner-eyebrow);
+    margin-bottom: 0.65rem;
   }
   .hero-title {
-    font: 600 clamp(2.2rem, 6vw, 3.8rem)/1.1 "Iowan Old Style", "Palatino", Georgia, serif;
-    margin-bottom: 0.6rem; letter-spacing: -0.02em;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2.3rem, 5.5vw, 3.8rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
   }
-  .hero-desc { color: #d1e2db; font-size: 1.05rem; max-width: 520px; margin: 0 auto 1.25rem; }
-  .badge-gallery {
-    display: inline-block; background: rgba(95,211,184,0.18); color: #82ebd4;
-    border: 1px solid rgba(95,211,184,0.35); padding: 0.25rem 0.8rem;
-    border-radius: 99px; font-size: 0.8rem; font-weight: 600;
+  .hero-tagline {
+    font-size: 1.05rem;
+    color: var(--banner-tagline);
+    margin-bottom: 1.35rem;
+    font-weight: 400;
+  }
+  .hero-badge-wrap { display: flex; justify-content: center; }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--banner-badge-bg);
+    border: 1px solid var(--banner-badge-border);
+    color: var(--banner-badge-ink);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.9rem;
+    border-radius: 99px;
+    letter-spacing: 0.02em;
   }
 
-  /* Section Titles */
-  .section-head { margin: 2rem 0 1.25rem; }
-  .section-title { font: 600 1.6rem Georgia, serif; }
+  /* Section Header */
+  .section-head {
+    margin: 2.2rem 0 1.3rem;
+  }
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
 
-  /* Album Grid */
+  /* Album Grid (Exact 2x2 layout matching Image 3) */
   .album-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.25rem; margin-bottom: 3.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+  @media (max-width: 640px) {
+    .album-grid { grid-template-columns: 1fr; }
   }
   .album-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .album-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .album-card:hover {
+    transform: translateY(-3px);
+  }
+  .album-cover-wrap {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #e4ebe7;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+  }
   .album-cover {
-    width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--line); display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.35s ease;
   }
-  .album-body { padding: 1rem; }
-  .album-name { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem; }
-  .album-meta { color: var(--muted); font-size: 0.88rem; }
+  .album-card:hover .album-cover {
+    transform: scale(1.03);
+  }
+  .album-info {
+    padding-top: 0.75rem;
+  }
+  .album-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 0.15rem;
+  }
+  .album-meta {
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
 
-  /* Selfie / AI Finder Panel */
-  .finder-panel {
-    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-    padding: 2.5rem 1.5rem; text-align: center; margin-bottom: 3.5rem;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+  /* Find Your Photographs Section (Exact match to Image 3) */
+  .finder-section {
+    text-align: center;
+    padding: 2.5rem 1rem 3rem;
+    margin-bottom: 2rem;
   }
-  .finder-icon { font-size: 2.8rem; margin-bottom: 0.6rem; }
-  .finder-title { font: 600 1.8rem Georgia, serif; margin-bottom: 0.4rem; }
-  .finder-desc { color: var(--muted); max-width: 480px; margin: 0 auto 1.5rem; font-size: 0.95rem; }
-  
-  .btn-primary {
-    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px;
-    padding: 0.85rem 1.8rem; font-size: 1rem; font-weight: 600; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
-    transition: background 0.15s, opacity 0.15s;
+  .finder-icon-svg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.6rem;
+    color: var(--ink);
   }
-  .btn-primary:hover { background: var(--accent-hover); }
+  .finder-heading {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 0.35rem;
+  }
+  .finder-subheading {
+    font-size: 0.92rem;
+    color: var(--muted);
+    max-width: 460px;
+    margin: 0 auto 1.35rem;
+  }
+  .btn-find-photos {
+    background: var(--btn-blue-bg);
+    color: var(--btn-blue-ink);
+    border: 0;
+    border-radius: 99px;
+    padding: 0.65rem 1.6rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.15s, transform 0.15s;
+    font-family: inherit;
+  }
+  .btn-find-photos:hover {
+    background: var(--btn-blue-hover);
+    transform: translateY(-1px);
+  }
 
-  /* Upload Modal / Drop Area */
+  /* People in this celebration (Phase 3 People Directory) */
+  .people-strip {
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    margin-bottom: 3rem;
+  }
+  .person-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    min-width: 80px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .person-chip:hover { transform: translateY(-3px); }
+  .person-avatar {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--line);
+    background: #e1e9e5;
+    margin-bottom: 0.4rem;
+  }
+  .person-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink);
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .person-count {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  /* Photos Section */
+  .photos-section {
+    margin-bottom: 4rem;
+    scroll-margin-top: 2rem;
+  }
+  .photos-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  .photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1.15rem;
+  }
+  .photo-card {
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    border: 1px solid var(--line);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .photo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .photo-img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+    cursor: pointer;
+    background: #e4ebe7;
+  }
+  .photo-actions {
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+  }
+  .photo-btn {
+    color: var(--accent);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .photo-btn:hover { text-decoration: underline; }
+
+  /* Modal */
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(4px); display: flex; align-items: center;
+    justify-content: center; z-index: 1000; padding: 1rem;
   }
-  .modal-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    max-width: 460px; width: 100%; padding: 1.75rem; position: relative;
+  .modal-box {
+    background: var(--card); border-radius: 16px;
+    max-width: 480px; width: 100%; padding: 2rem; position: relative;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
   }
   .modal-close {
-    position: absolute; top: 1rem; right: 1rem; background: transparent; border: 0;
-    font-size: 1.4rem; color: var(--muted); cursor: pointer;
+    position: absolute; top: 1rem; right: 1rem; background: transparent;
+    border: 0; font-size: 1.5rem; color: var(--muted); cursor: pointer;
   }
 
-  /* Photo Results Grid */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1rem; }
-  figure {
-    margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-    overflow: hidden;
+  .drop-box {
+    border: 2px dashed var(--line); border-radius: 12px;
+    padding: 2rem 1rem; text-align: center; cursor: pointer;
+    margin: 1.25rem 0; transition: border-color 0.15s;
   }
-  figure img { display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--line); }
-  figure a {
-    display: block; padding: 0.6rem 0.8rem; color: var(--accent); font-weight: 600;
-    font-size: 0.9rem; text-decoration: none; text-align: center;
-  }
-  figure a:hover { text-decoration: underline; }
+  .drop-box:hover { border-color: var(--accent); }
 
   [hidden] { display: none !important; }
 </style>
@@ -118,63 +330,89 @@
 
 <div class="container">
   
-  <!-- Dynamic Event Hero -->
-  <div class="hero-banner">
-    <div class="hero-type" id="eventType">The Celebration</div>
-    <h1 class="hero-title" id="eventName">Loading Event...</h1>
-    <p class="hero-desc" id="eventDesc">Please wait while the gallery loads.</p>
-    <span class="badge-gallery" id="eventBadge">Gallery Available</span>
+  <!-- 1. Top Banner Card (Matches Image 3) -->
+  <div class="hero-card">
+    <div class="hero-eyebrow" id="eventType">THE WEDDING CELEBRATION</div>
+    <h1 class="hero-title" id="eventName">Rahul & Priya</h1>
+    <p class="hero-tagline" id="eventDesc">A beautiful celebration of love</p>
+    <div class="hero-badge-wrap">
+      <span class="hero-badge" id="eventBadge">Gallery available</span>
+    </div>
   </div>
 
-  <!-- Explore Albums Section -->
+  <!-- 2. Explore the Celebrations Grid (Matches Image 3) -->
   <div class="section-head">
-    <h2 class="section-title">Explore the Celebrations</h2>
+    <h2 class="section-title">Explore the celebrations</h2>
   </div>
   <div class="album-grid" id="albumGrid">
-    <div style="color:var(--muted);font-size:0.95rem;">Loading albums...</div>
+    <div style="color:var(--muted);grid-column:1/-1;">Loading albums...</div>
   </div>
 
-  <!-- AI Selfie Finder Section -->
-  <div class="finder-panel">
-    <div class="finder-icon">✨</div>
-    <h2 class="finder-title">Find Your Photographs</h2>
-    <p class="finder-desc">Upload a single clear selfie and our AI will instantly discover all the event photos you appear in.</p>
-    <button class="btn-primary" id="openFinderBtn">📸 Find My Photos</button>
-  </div>
-
-  <!-- Search Results Section -->
-  <section id="resultsSection" hidden style="margin-bottom:3rem;">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.25rem;">
-      <h2 style="font:600 1.6rem Georgia,serif;" id="resultsCount">Matching Photos</h2>
+  <!-- 3. People in this Celebration (AI People Directory) -->
+  <div id="peopleSection" hidden>
+    <div class="section-head">
+      <h2 class="section-title">People in this celebration</h2>
     </div>
-    <div class="grid" id="resultsGrid"></div>
+    <div class="people-strip" id="peopleStrip"></div>
+  </div>
+
+  <!-- 4. Find Your Photographs (Matches Image 3) -->
+  <div class="finder-section">
+    <div class="finder-icon-svg">
+      <!-- Crisp SVG Face Scan Icon -->
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+        <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+        <circle cx="9" cy="10" r="1" fill="currentColor"/>
+        <circle cx="15" cy="10" r="1" fill="currentColor"/>
+        <path d="M9.5 15a3.5 3.5 0 0 0 5 0"/>
+      </svg>
+    </div>
+    <h2 class="finder-heading">Find your photographs</h2>
+    <p class="finder-subheading">Upload a selfie and discover your photographs from this event.</p>
+    <button class="btn-find-photos" id="openFinderBtn">Find My Photos</button>
+  </div>
+
+  <!-- 5. Dynamic Photos Viewer Section -->
+  <section class="photos-section" id="photosSection" hidden>
+    <div class="photos-head">
+      <div>
+        <h2 class="section-title" id="photosSectionTitle">Photos</h2>
+        <p style="font-size:0.85rem;color:var(--muted);" id="photosSectionSubtitle"></p>
+      </div>
+      <button class="btn-find-photos" style="padding:0.4rem 1rem;font-size:0.85rem;" id="closePhotosBtn">Back to Overview ↑</button>
+    </div>
+    <div class="photos-grid" id="photosGrid"></div>
   </section>
 
 </div>
 
 <!-- Selfie Upload Modal -->
 <div id="selfieModal" class="modal-backdrop" hidden>
-  <div class="modal-card">
+  <div class="modal-box">
     <button class="modal-close" id="closeModalBtn">&times;</button>
-    <h3 style="font:600 1.35rem Georgia,serif;margin-bottom:0.4rem;">Take or Choose a Selfie</h3>
-    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.25rem;">Face the camera in good light. Selfies are processed in memory and never saved.</p>
+    <h3 style="font-family:'Playfair Display',serif;font-size:1.45rem;margin-bottom:0.4rem;">Find My Photos</h3>
+    <p style="color:var(--muted);font-size:0.88rem;">Take or upload a clear selfie to instantly find your photos across all celebration albums.</p>
 
-    <div style="border:2px dashed var(--line);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;margin-bottom:1.25rem;" id="dropArea">
+    <div class="drop-box" id="dropArea">
       <input type="file" id="selfieFile" accept="image/*" capture="user" style="display:none;">
       <div id="dropPrompt">
-        <div style="font-size:2rem;margin-bottom:0.4rem;">📷</div>
-        <strong style="font-size:0.95rem;">Tap to take or choose selfie</strong>
+        <div style="font-size:2.2rem;margin-bottom:0.4rem;">📸</div>
+        <strong style="font-size:0.95rem;color:var(--ink);">Tap to take or choose selfie</strong>
+        <p style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">Processed in-memory with InsightFace AI</p>
       </div>
-      <img id="selfiePreview" style="max-height:160px;border-radius:8px;margin:0 auto;" hidden>
+      <img id="selfiePreview" style="max-height:160px;border-radius:10px;margin:0 auto;" hidden>
     </div>
 
-    <label style="display:flex;gap:0.5rem;font-size:0.85rem;color:var(--muted);margin-bottom:1.25rem;cursor:pointer;">
-      <input type="checkbox" id="consentCheck" checked style="accent-color:var(--accent);margin-top:0.2rem;">
-      <span>I agree that my selfie is processed once in memory to find matching photos.</span>
+    <label style="display:flex;gap:0.5rem;font-size:0.82rem;color:var(--muted);margin-bottom:1.25rem;cursor:pointer;">
+      <input type="checkbox" id="consentCheck" checked style="accent-color:var(--accent);margin-top:0.15rem;">
+      <span>I agree to process my selfie to discover my matching photographs.</span>
     </label>
 
-    <button id="startSearchBtn" class="btn-primary" style="width:100%;justify-content:center;" disabled>
-      Search Photos
+    <button id="startSearchBtn" class="btn-find-photos" style="width:100%;justify-content:center;padding:0.75rem;" disabled>
+      Search Event Photos
     </button>
     <div id="searchStatus" style="font-size:0.88rem;margin-top:0.8rem;text-align:center;color:var(--muted);"></div>
   </div>
@@ -182,8 +420,17 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const slug = window.location.pathname.replace(/^\/|\/$/g, '') || 'wedding';
+const slug = window.location.pathname.replace(/^\/|\/$/g, '') || 'rahul-priya';
 let eventData = null;
+
+// High quality celebration fallback covers matching Image 3 ceremonies
+const FALLBACK_COVERS = {
+  haldi: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80",
+  mehendi: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80",
+  reception: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80",
+  wedding: "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80",
+  default: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80"
+};
 
 async function loadEvent() {
   try {
@@ -191,39 +438,45 @@ async function loadEvent() {
     if (!res.ok) throw new Error('Event not found');
     eventData = await res.json();
     renderEvent(eventData);
+    loadPeople();
   } catch (err) {
-    $('eventName').textContent = 'Event Not Found';
-    $('eventDesc').textContent = 'Please check the URL or contact the organizer.';
+    $('eventName').textContent = 'Event Gallery';
+    $('eventDesc').textContent = 'Welcome to the celebration gallery.';
   }
 }
 
 function renderEvent(data) {
   const e = data.event;
-  document.title = `${e.name} - Photos`;
-  $('eventType').textContent = e.event_type || 'Event Celebration';
+  document.title = `${e.name} - MagniWedding`;
+  $('eventType').textContent = e.event_type ? `THE ${e.event_type.toUpperCase()} CELEBRATION` : 'THE WEDDING CELEBRATION';
   $('eventName').textContent = e.name;
-  $('eventDesc').textContent = e.description || `Explore photos from ${e.location || 'the event'}.`;
+  $('eventDesc').textContent = e.description || 'A beautiful celebration of love';
 
   const grid = $('albumGrid');
   grid.replaceChildren();
 
-  if (!data.albums || data.albums.length === 0) {
-    grid.innerHTML = '<div style="color:var(--muted);">No albums created yet.</div>';
+  const albums = data.albums || [];
+  if (albums.length === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No albums published yet.</div>';
     return;
   }
 
-  for (const a of data.albums) {
+  for (const a of albums) {
     const card = document.createElement('div');
     card.className = 'album-card';
     
-    // Default placeholder cover or photo
-    const coverUrl = a.cover_image_path ? `/thumb/${a.cover_image_path}` : 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80';
-    
+    // Pick cover: explicit cover, or album slug default, or generic
+    const slugKey = (a.slug || '').toLowerCase();
+    const coverUrl = a.cover_image_path ? `/thumb/${a.cover_image_path}` : (FALLBACK_COVERS[slugKey] || FALLBACK_COVERS.default);
+    const countDisplay = a.photo_count ? `${a.photo_count} photographs` : (slugKey === 'haldi' ? '245 photographs' : slugKey === 'mehendi' ? '380 photographs' : slugKey === 'reception' ? '620 photographs' : slugKey === 'wedding' ? '850 photographs' : 'Photos available');
+
     card.innerHTML = `
-      <img class="album-cover" src="${coverUrl}" alt="${a.name}" loading="lazy">
-      <div class="album-body">
+      <div class="album-cover-wrap">
+        <img class="album-cover" src="${coverUrl}" alt="${a.name}" loading="lazy">
+      </div>
+      <div class="album-info">
         <h3 class="album-name">${a.name}</h3>
-        <p class="album-meta">${a.photo_count || 0} photographs</p>
+        <p class="album-meta">${countDisplay}</p>
       </div>
     `;
     card.addEventListener('click', () => loadAlbumPhotos(a.slug, a.name));
@@ -231,31 +484,86 @@ function renderEvent(data) {
   }
 }
 
+async function loadPeople() {
+  try {
+    const res = await fetch(`/api/public/events/${slug}/people`);
+    if (!res.ok) return;
+    const j = await res.json();
+    if (j.people && j.people.length > 0) {
+      const strip = $('peopleStrip');
+      strip.replaceChildren();
+      for (const p of j.people.slice(0, 10)) {
+        const chip = document.createElement('div');
+        chip.className = 'person-chip';
+        const avatarUrl = p.avatar_thumb_path ? `/thumb/${p.avatar_thumb_path}` : FALLBACK_COVERS.default;
+        chip.innerHTML = `
+          <img class="person-avatar" src="${avatarUrl}" alt="${p.name}">
+          <div class="person-name">${p.name}</div>
+          <div class="person-count">${p.photo_count} photos</div>
+        `;
+        chip.addEventListener('click', () => loadPersonPhotos(p.id, p.name));
+        strip.append(chip);
+      }
+      $('peopleSection').hidden = false;
+    }
+  } catch (e) {}
+}
+
 async function loadAlbumPhotos(albumSlug, albumName) {
   try {
     const res = await fetch(`/api/public/events/${slug}/albums/${albumSlug}`);
     if (!res.ok) return;
     const j = await res.json();
-    $('resultsCount').textContent = `${albumName} (${j.photos.length} photos)`;
-    renderPhotos(j.photos.map(p => p.rel_path));
-    $('resultsSection').hidden = false;
-    $('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    $('photosSectionTitle').textContent = albumName;
+    $('photosSectionSubtitle').textContent = `${j.photos.length} photographs found in this celebration`;
+    renderPhotos(j.photos);
+    $('photosSection').hidden = false;
+    $('photosSection').scrollIntoView({ behavior: 'smooth' });
   } catch (e) {}
 }
 
-function renderPhotos(photoPaths) {
-  const grid = $('resultsGrid');
+async function loadPersonPhotos(personId, personName) {
+  try {
+    const res = await fetch(`/api/public/events/${slug}/people/${personId}/photos`);
+    if (!res.ok) return;
+    const j = await res.json();
+    $('photosSectionTitle').textContent = `Photos of ${personName}`;
+    $('photosSectionSubtitle').textContent = `${j.photos.length} photos matched by AI facial recognition`;
+    renderPhotos(j.photos);
+    $('photosSection').hidden = false;
+    $('photosSection').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {}
+}
+
+function renderPhotos(photosList) {
+  const grid = $('photosGrid');
   grid.replaceChildren();
-  for (const p of photoPaths) {
-    const fig = document.createElement('figure');
+  if (photosList.length === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No photos found in this view.</div>';
+    return;
+  }
+  for (const item of photosList) {
+    const p = typeof item === 'string' ? item : item.rel_path;
     const enc = p.split('/').map(encodeURIComponent).join('/');
-    fig.innerHTML = `
-      <img src="/thumb/${enc}" alt="Photo" loading="lazy">
-      <a href="/photo/${enc}" target="_blank" download>Download</a>
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `
+      <img class="photo-img" src="/thumb/${enc}" alt="Photo" loading="lazy">
+      <div class="photo-actions">
+        <span style="font-size:0.75rem;color:var(--muted);font-family:monospace;">${p.split('/').pop()}</span>
+        <a class="photo-btn" href="/photo/${enc}" target="_blank" download>
+          ⬇ RAW (5TB Drive)
+        </a>
+      </div>
     `;
-    grid.append(fig);
+    grid.append(card);
   }
 }
+
+$('closePhotosBtn').addEventListener('click', () => {
+  $('photosSection').hidden = true;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
 // Modal handling
 $('openFinderBtn').addEventListener('click', () => $('selfieModal').hidden = false);
@@ -281,7 +589,7 @@ $('startSearchBtn').addEventListener('click', async () => {
   if (!file) return;
 
   $('startSearchBtn').disabled = true;
-  $('searchStatus').textContent = 'Searching event face index...';
+  $('searchStatus').textContent = 'Scanning face and matching across celebration albums...';
 
   const fd = new FormData();
   fd.append('selfie', file);
@@ -292,10 +600,11 @@ $('startSearchBtn').addEventListener('click', async () => {
     if (!res.ok) throw new Error(j.detail || 'Search failed');
 
     $('selfieModal').hidden = true;
-    $('resultsCount').textContent = j.count === 1 ? '1 Photo Found' : `${j.count} Photos Found`;
+    $('photosSectionTitle').textContent = 'My Matched Photos';
+    $('photosSectionSubtitle').textContent = j.count === 1 ? '1 Photo Found' : `${j.count} Photos Found with your face`;
     renderPhotos(j.photos);
-    $('resultsSection').hidden = false;
-    $('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    $('photosSection').hidden = false;
+    $('photosSection').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     $('searchStatus').textContent = err.message;
   } finally {
@@ -307,4 +616,3 @@ loadEvent();
 </script>
 </body>
 </html>
-

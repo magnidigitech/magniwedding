@@ -95,6 +95,12 @@ def index_event(event_slug="wedding"):
 
     save()
     print(f"Done for '{event_slug}'. {len(done)} photos, {len(embs)} faces indexed.")
+    try:
+        from database import cluster_and_sync_people
+        cl_res = cluster_and_sync_people(event_slug)
+        print(f"Clustering complete: {cl_res}")
+    except Exception as e:
+        print(f"Clustering note: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MagniWedding Multi-Event Face Indexer")

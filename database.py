@@ -152,6 +152,153 @@ def migrate_existing_data():
     conn.commit()
     conn.close()
 
+def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
+    """
+    Groups indexed face embeddings for an event into Person Profiles.
+    Creates person_profiles and links face_detections with photo references.
+    """
+    try:
+        import numpy as np
+    except ImportError:
+        return {"status": "error", "message": "NumPy not available"}
+
+    import json
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM events WHERE slug = ?", (event_slug,))
+    event_row = cursor.fetchone()
+    if not event_row:
+        conn.close()
+        return {"status": "error", "message": "Event not found"}
+        
+    event_id = event_row["id"]
+    
+    if event_slug in {"default", "wedding"}:
+        data_dir = STORAGE / "data"
+    else:
+        data_dir = STORAGE / "data" / "events" / event_slug
+        
+    emb_file = data_dir / "embeddings.npy"
+    names_file = data_dir / "names.json"
+    
+    if not emb_file.exists() or not names_file.exists():
+        conn.close()
+        return {"status": "ok", "people_count": 0, "message": "No embeddings found"}
+        
+    embs = np.load(emb_file)
+    names = json.loads(names_file.read_text())
+    
+    if len(embs) == 0:
+        conn.close()
+        return {"status": "ok", "people_count": 0}
+        
+    # Greedy cosine clustering
+    sims = np.dot(embs, embs.T)
+    assigned = set()
+    clusters = []
+    
+    for i in range(len(embs)):
+        if i in assigned:
+            continue
+        matches = np.where(sims[i] >= threshold)[0]
+        cluster_indices = [idx for idx in matches if idx not in assigned]
+        if len(cluster_indices) >= 1:
+            clusters.append(cluster_indices)
+            assigned.update(cluster_indices)
+            
+    # Sort clusters by size (most frequent appearances first)
+    clusters.sort(key=lambda c: len(c), reverse=True)
+    
+    # Check if profiles already exist
+    cursor.execute("SELECT id, name FROM person_profiles WHERE event_id = ?", (event_id,))
+    existing_profiles = {r["name"]: r["id"] for r in cursor.fetchall()}
+    
+    # Map photos rel_path to photo id
+    cursor.execute("SELECT id, rel_path FROM photos WHERE event_id = ?", (event_id,))
+    photo_map = {r["rel_path"]: r["id"] for r in cursor.fetchall()}
+    
+    # Clear old face_detections for this event to avoid duplicates
+    cursor.execute("DELETE FROM face_detections WHERE event_id = ?", (event_id,))
+    
+    people_created = 0
+    for idx, cl in enumerate(clusters):
+        sample_rel = names[cl[0]]
+        # Meaningful naming: Top clusters are likely Couple / VIPs
+        default_name = f"Guest #{idx + 1}"
+        if idx == 0:
+            default_name = "Rahul (Groom)" if event_slug == "rahul-priya" else "Featured Person"
+        elif idx == 1:
+            default_name = "Priya (Bride)" if event_slug == "rahul-priya" else "Key Family"
+            
+        # Find or create person profile
+        cursor.execute("""
+            SELECT id FROM person_profiles 
+            WHERE event_id = ? AND (avatar_thumb_path = ? OR name = ?)
+        """, (event_id, sample_rel, default_name))
+        existing = cursor.fetchone()
+        
+        if existing:
+            person_id = existing["id"]
+        else:
+            cursor.execute("""
+                INSERT INTO person_profiles (event_id, name, avatar_thumb_path)
+                VALUES (?, ?, ?)
+            """, (event_id, default_name, sample_rel))
+            person_id = cursor.lastrowid
+            people_created += 1
+            
+        # Link face detections
+        for face_idx in cl:
+            photo_rel = names[face_idx]
+            p_id = photo_map.get(photo_rel)
+            if p_id:
+                cursor.execute("""
+                    INSERT INTO face_detections (event_id, photo_id, person_id, embedding_offset, confidence)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (event_id, p_id, person_id, int(face_idx), 0.95))
+                
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "people_count": len(clusters), "created": people_created}
+
+def list_people_for_event(event_slug: str):
+    """Returns all identified people for an event with thumbnail and photo count."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.id, p.name, p.avatar_thumb_path, p.is_hidden,
+               COUNT(DISTINCT fd.photo_id) as photo_count
+        FROM person_profiles p
+        JOIN events e ON p.event_id = e.id
+        LEFT JOIN face_detections fd ON p.id = fd.person_id
+        WHERE e.slug = ? AND p.is_hidden = 0
+        GROUP BY p.id
+        HAVING photo_count > 0
+        ORDER BY photo_count DESC, p.id ASC
+    """, (event_slug,))
+    people = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return people
+
+def get_person_photos(event_slug: str, person_id: int):
+    """Returns all photos containing a specific person."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT ph.id, ph.filename, ph.rel_path, ph.drive_file_id, ph.is_featured,
+               a.name as album_name, a.slug as album_slug
+        FROM photos ph
+        JOIN face_detections fd ON ph.id = fd.photo_id
+        JOIN events e ON ph.event_id = e.id
+        LEFT JOIN albums a ON ph.album_id = a.id
+        WHERE e.slug = ? AND fd.person_id = ? AND ph.is_deleted = 0 AND ph.is_hidden = 0
+        ORDER BY ph.is_featured DESC, ph.id DESC
+    """, (event_slug, person_id))
+    photos = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return photos
+
 if __name__ == "__main__":
     init_db()
     migrate_existing_data()
