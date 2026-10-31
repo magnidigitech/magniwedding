@@ -241,10 +241,11 @@ def migrate_existing_data():
     conn.commit()
     conn.close()
 
-def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
+def cluster_and_sync_people(event_slug="wedding", threshold=0.48):
     """
-    Groups indexed face embeddings for an event into Person Profiles.
-    Creates person_profiles and links face_detections with photo references.
+    Groups indexed face embeddings for an event into accurate Person Profiles.
+    Uses centroid-based clustering and merging so the same person is not fragmented,
+    and assigns each person a distinct profile and cropped face avatar.
     """
     try:
         import numpy as np
@@ -282,26 +283,66 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
         conn.close()
         return {"status": "ok", "people_count": 0}
         
-    # Greedy cosine clustering
+    # 1. Cosine similarity matrix
     sims = np.dot(embs, embs.T)
     assigned = set()
-    clusters = []
-    
+    initial_clusters = []
+
+    # 2. Centroid-based clustering
     for i in range(len(embs)):
         if i in assigned:
             continue
-        matches = np.where(sims[i] >= threshold)[0]
-        cluster_indices = [idx for idx in matches if idx not in assigned]
-        if len(cluster_indices) >= 1:
-            clusters.append(cluster_indices)
-            assigned.update(cluster_indices)
-            
-    # Sort clusters by size (most frequent appearances first)
-    clusters.sort(key=lambda c: len(c), reverse=True)
+        cluster = [i]
+        assigned.add(i)
+        c_emb = embs[i].copy()
+        c_emb = c_emb / np.linalg.norm(c_emb)
+
+        # Find all faces matching this cluster centroid
+        for j in range(len(embs)):
+            if j not in assigned:
+                sim_to_c = float(np.dot(embs[j], c_emb))
+                if sim_to_c >= threshold:
+                    cluster.append(j)
+                    assigned.add(j)
+                    # Update running centroid
+                    c_emb = np.mean(embs[cluster], axis=0)
+                    c_emb = c_emb / np.linalg.norm(c_emb)
+
+        initial_clusters.append(cluster)
+
+    # 3. Cluster Merging: merge clusters whose centroids are very close (>= 0.52)
+    clusters = []
+    centroids = []
+    for cl in initial_clusters:
+        c_emb = np.mean(embs[cl], axis=0)
+        c_emb = c_emb / np.linalg.norm(c_emb)
+        merged = False
+        for c_idx, existing_c in enumerate(centroids):
+            if np.dot(c_emb, existing_c) >= 0.52:
+                clusters[c_idx].extend(cl)
+                # Re-calculate merged centroid
+                new_c = np.mean(embs[clusters[c_idx]], axis=0)
+                centroids[c_idx] = new_c / np.linalg.norm(new_c)
+                merged = True
+                break
+        if not merged:
+            clusters.append(cl)
+            centroids.append(c_emb)
+
+    # Sort clusters by number of unique photo appearances
+    clusters.sort(key=lambda c: len(set(names[idx] for idx in c)), reverse=True)
     
-    # Check if profiles already exist
+    # 4. Preserve existing user-assigned custom names
     cursor.execute("SELECT id, name FROM person_profiles WHERE event_id = ?", (event_id,))
-    existing_profiles = {r["name"]: r["id"] for r in cursor.fetchall()}
+    custom_names = {}
+    for r in cursor.fetchall():
+        name = r["name"]
+        if not name.startswith("Guest #") and name not in {"Featured Person", "Key Family", "Rahul (Groom)", "Priya (Bride)"}:
+            custom_names[r["id"]] = name
+
+    # Clear old face_detections and unrenamed profiles for clean sync
+    cursor.execute("DELETE FROM face_detections WHERE event_id = ?", (event_id,))
+    cursor.execute("DELETE FROM person_profiles WHERE event_id = ?", (event_id,))
     
     # Map photos rel_path, filename and relative subpath to photo id
     cursor.execute("SELECT id, rel_path, filename FROM photos WHERE event_id = ?", (event_id,))
@@ -312,10 +353,8 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
         parts = r["rel_path"].split("/")
         if len(parts) >= 2:
             photo_map["/".join(parts[1:])] = r["id"]
+        if len(parts) >= 3:
             photo_map["/".join(parts[2:])] = r["id"]
-    
-    # Clear old face_detections for this event to avoid duplicates
-    cursor.execute("DELETE FROM face_detections WHERE event_id = ?", (event_id,))
     
     people_created = 0
     for idx, cl in enumerate(clusters):
@@ -325,30 +364,18 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
         else:
             sample_rel = sample_raw
             
-        # Meaningful naming: Top clusters are likely Couple / VIPs
         default_name = f"Guest #{idx + 1}"
         if idx == 0:
             default_name = "Rahul (Groom)" if event_slug == "rahul-priya" else "Featured Person"
         elif idx == 1:
             default_name = "Priya (Bride)" if event_slug == "rahul-priya" else "Key Family"
             
-        # Find or create person profile
         cursor.execute("""
-            SELECT id FROM person_profiles 
-            WHERE event_id = ? AND (avatar_thumb_path = ? OR name = ?)
-        """, (event_id, sample_rel, default_name))
-        existing = cursor.fetchone()
-        
-        if existing:
-            person_id = existing["id"]
-            cursor.execute("UPDATE person_profiles SET avatar_thumb_path = ? WHERE id = ?", (sample_rel, person_id))
-        else:
-            cursor.execute("""
-                INSERT INTO person_profiles (event_id, name, avatar_thumb_path)
-                VALUES (?, ?, ?)
-            """, (event_id, default_name, sample_rel))
-            person_id = cursor.lastrowid
-            people_created += 1
+            INSERT INTO person_profiles (event_id, name, avatar_thumb_path)
+            VALUES (?, ?, ?)
+        """, (event_id, default_name, sample_rel))
+        person_id = cursor.lastrowid
+        people_created += 1
             
         # Link face detections
         for face_idx in cl:
@@ -363,11 +390,13 @@ def cluster_and_sync_people(event_slug="wedding", threshold=0.55):
                 
     conn.commit()
     conn.close()
+
     try:
         from crop_faces import crop_people_faces
-        crop_people_faces()
+        crop_people_faces(event_slug)
     except Exception as e:
         print(f"Face crop note: {e}")
+
     return {"status": "ok", "people_count": len(clusters), "created": people_created}
 
 def list_people_for_event(event_slug: str):
@@ -376,10 +405,11 @@ def list_people_for_event(event_slug: str):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT p.id, p.name, p.avatar_thumb_path, p.is_hidden,
-               COUNT(DISTINCT fd.photo_id) as photo_count
+               COUNT(DISTINCT ph.filename) as photo_count
         FROM person_profiles p
         JOIN events e ON p.event_id = e.id
         LEFT JOIN face_detections fd ON p.id = fd.person_id
+        LEFT JOIN photos ph ON fd.photo_id = ph.id AND ph.is_deleted = 0
         WHERE e.slug = ? AND p.is_hidden = 0
         GROUP BY p.id
         HAVING photo_count > 0
@@ -390,17 +420,19 @@ def list_people_for_event(event_slug: str):
     return people
 
 def get_person_photos(event_slug: str, person_id: int):
-    """Returns all photos containing a specific person."""
+    """Returns all photos containing a specific person, deduplicated by filename."""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT DISTINCT ph.id, ph.filename, ph.rel_path, ph.drive_file_id, ph.is_featured,
-               a.name as album_name, a.slug as album_slug
+        SELECT ph.id, ph.filename, ph.rel_path, ph.drive_file_id, ph.is_featured,
+               a.name as album_name, a.slug as album_slug,
+               e.name as event_name, e.slug as event_slug
         FROM photos ph
         JOIN face_detections fd ON ph.id = fd.photo_id
         JOIN events e ON ph.event_id = e.id
         LEFT JOIN albums a ON ph.album_id = a.id
         WHERE e.slug = ? AND fd.person_id = ? AND ph.is_deleted = 0 AND ph.is_hidden = 0
+        GROUP BY ph.filename
         ORDER BY ph.is_featured DESC, ph.filename ASC
     """, (event_slug, person_id))
     photos = [dict(r) for r in cursor.fetchall()]

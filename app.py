@@ -359,21 +359,49 @@ def perform_face_search(selfie: UploadFile, event_slug: str = "wedding"):
         raise HTTPException(422, "No face found. Try a clear, front-facing photo in good light.")
     face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
     sims = embs @ face.normed_embedding
-    best = {}
+
+    # Deduplicate matching photos by unique filename, keeping the highest confidence match
+    best_by_filename = {}
     for idx in np.where(sims >= THRESHOLD)[0]:
         n = names[idx]
-        best[n] = max(best.get(n, 0), float(sims[idx]))
-    ranked = sorted(best.items(), key=lambda kv: -kv[1])[:MAX_RESULTS]
+        fname = Path(n).name
+        score = float(sims[idx])
+        if fname not in best_by_filename or score > best_by_filename[fname]["score"]:
+            best_by_filename[fname] = {"rel_path": n, "score": score}
+
+    ranked = sorted(best_by_filename.items(), key=lambda kv: -kv[1]["score"])[:MAX_RESULTS]
     reload_drive_map()
+
+    # Query event & album names for grouping
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.filename, p.rel_path, p.drive_file_id, 
+               a.name as album_name, a.slug as album_slug, 
+               e.name as event_name, e.slug as event_slug
+        FROM photos p
+        JOIN events e ON p.event_id = e.id
+        LEFT JOIN albums a ON p.album_id = a.id
+        WHERE e.slug = ?
+    """, (event_slug,))
+    photo_info = {r["filename"]: dict(r) for r in cursor.fetchall()}
+    conn.close()
+
     photos_data = []
-    for n, score in ranked:
+    for fname, item in ranked:
+        n = item["rel_path"]
+        score = item["score"]
+        info = photo_info.get(fname, {})
         photos_data.append({
             "rel_path": n,
-            "filename": Path(n).name,
-            "drive_file_id": drive_map.get(n),
-            "confidence": round(float(score), 3)
+            "filename": fname,
+            "drive_file_id": info.get("drive_file_id") or drive_map.get(n) or drive_map.get(fname),
+            "confidence": round(float(score), 3),
+            "album_name": info.get("album_name", ""),
+            "event_name": info.get("event_name", ""),
+            "event_slug": info.get("event_slug", event_slug)
         })
-    return {"count": len(ranked), "photos": photos_data, "legacy_photos": [n for n, _ in ranked]}
+    return {"count": len(photos_data), "photos": photos_data, "legacy_photos": [p["rel_path"] for p in photos_data]}
 
 @app.post("/api/search")
 def default_search(selfie: UploadFile = File(...)):
@@ -833,17 +861,46 @@ def admin_update_album(slug: str, album_id: int, payload: dict, token: str = Dep
 def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_token)):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE photos SET album_id = NULL 
-        WHERE album_id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
-    """, (album_id, slug))
-    cursor.execute("""
-        DELETE FROM albums 
-        WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
-    """, (album_id, slug))
+    cursor.execute("SELECT id, slug, name FROM albums WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)", (album_id, slug))
+    album = cursor.fetchone()
+    if not album:
+        conn.close()
+        raise HTTPException(404, "Album not found")
+
+    album_slug = album["slug"]
+
+    # Delete photos and face detections associated with this album
+    cursor.execute("SELECT id, rel_path FROM photos WHERE album_id = ?", (album_id,))
+    photo_rows = cursor.fetchall()
+    pids = [r["id"] for r in photo_rows]
+    if pids:
+        cursor.execute(f"DELETE FROM face_detections WHERE photo_id IN ({','.join('?' for _ in pids)})", pids)
+        cursor.execute(f"DELETE FROM photos WHERE id IN ({','.join('?' for _ in pids)})", pids)
+
+    cursor.execute("DELETE FROM albums WHERE id = ?", (album_id,))
     conn.commit()
     conn.close()
-    return {"status": "ok"}
+
+    # Remove physical folder from disk so sync doesn't resurrect it
+    if slug in {"default", "wedding"}:
+        folder_dir = PHOTOS / album_slug
+        thumbs_dir = DATA / "thumbs"
+    else:
+        folder_dir = PHOTOS / "events" / slug / album_slug
+        thumbs_dir = DATA / "events" / slug / "thumbs"
+
+    if folder_dir.exists():
+        shutil.rmtree(folder_dir, ignore_errors=True)
+
+    if thumbs_dir.exists():
+        for th in thumbs_dir.glob(f"{album_slug}__*"):
+            try:
+                th.unlink()
+            except Exception:
+                pass
+
+    append_log(f"Deleted album '{album['name']}' ({album_slug}) and its files from event '{slug}'.")
+    return {"status": "ok", "deleted_album": album_slug}
 
 @app.get("/api/admin/events/{slug}/photos")
 def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends(get_auth_token)):

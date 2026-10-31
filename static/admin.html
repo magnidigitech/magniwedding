@@ -956,7 +956,7 @@
           <div class="task-meta-right" style="display:flex;align-items:center;gap:0.6rem;">
             <span id="taskTimeElapsed" style="font-size:0.78rem;color:var(--muted);font-family:monospace;"></span>
             <button class="btn-outline" style="padding:0.2rem 0.5rem;font-size:0.75rem;" onclick="switchTab('logs')">View Logs &rarr;</button>
-            <button class="btn-icon-sub" style="width:24px;height:24px;border:0;background:transparent;font-size:1.1rem;" onclick="$('visualTaskCard').hidden = true" title="Dismiss">&times;</button>
+            <button class="btn-icon-sub" style="width:24px;height:24px;border:0;background:transparent;font-size:1.1rem;cursor:pointer;" onclick="dismissTaskCard()" title="Dismiss">&times;</button>
           </div>
         </div>
 
@@ -1780,10 +1780,19 @@ async function loadAlbums() {
 }
 
 async function deleteAlbum(albumId) {
-  if (!confirm('Delete this album? Photos will remain unassigned.')) return;
-  await fetch(`/api/admin/events/${activeSlug}/albums/${albumId}`, { method: 'DELETE' });
-  await setEventWorkspace(activeSlug, false);
-  loadAlbums();
+  if (!confirm('Are you sure you want to delete this album folder and its photos?')) return;
+  try {
+    const res = await fetch(`/api/admin/events/${activeSlug}/albums/${albumId}`, { method: 'DELETE' });
+    if (res.ok) {
+      await setEventWorkspace(activeSlug, false);
+      loadAlbums();
+    } else {
+      const j = await res.json();
+      alert(j.detail || 'Failed to delete album');
+    }
+  } catch (e) {
+    alert('Error connecting to server.');
+  }
 }
 
 // Photos (Natural Alphanumeric Sort by Name)
@@ -2181,6 +2190,13 @@ async function loadAnalytics() {
 
 // Activity Logs & Task Management
 let pollTimer = null;
+let taskDismissTimer = null;
+
+function dismissTaskCard() {
+  $('visualTaskCard').hidden = true;
+  const taskSubtext = $('taskEventTargetText')?.textContent || '';
+  sessionStorage.setItem('dismissed_task_recent', 'true');
+}
 
 async function pollTaskStatus() {
   try {
@@ -2195,11 +2211,17 @@ async function pollTaskStatus() {
       return;
     }
 
-    // Hide completed/failed task if older than 20 minutes
+    const taskId = task.task_id || task.id;
+    if (sessionStorage.getItem('dismissed_task_' + taskId)) {
+      $('visualTaskCard').hidden = true;
+      return;
+    }
+
+    // Hide completed/failed task if older than 1 minute
     if ((task.status === 'completed' || task.status === 'failed') && task.completed_at) {
       const completedTime = new Date(task.completed_at.includes('Z') ? task.completed_at : task.completed_at + 'Z').getTime();
-      const diffMin = (Date.now() - completedTime) / (1000 * 60);
-      if (diffMin > 20) {
+      const diffSec = (Date.now() - completedTime) / 1000;
+      if (diffSec > 15) { // 15 seconds
         $('visualTaskCard').hidden = true;
         return;
       }
@@ -2234,12 +2256,20 @@ async function pollTaskStatus() {
     const savedMb = task.storage_saved_mb || 0;
     $('taskStorageStat').textContent = `${savedMb.toFixed(1)} MB saved (98.5% VPS offload)`;
 
-    // Polling rate
+    // Polling rate and auto-close timer on completion
     clearTimeout(pollTimer);
     if (isRunning || status === 'running') {
       pollTimer = setTimeout(pollTaskStatus, 2000);
     } else {
-      pollTimer = setTimeout(pollTaskStatus, 8000);
+      // Completed or failed: show for 6 seconds then automatically dismiss
+      if (!taskDismissTimer) {
+        taskDismissTimer = setTimeout(() => {
+          $('visualTaskCard').hidden = true;
+          sessionStorage.setItem('dismissed_task_' + taskId, 'true');
+          taskDismissTimer = null;
+        }, 6000);
+      }
+      pollTimer = setTimeout(pollTaskStatus, 10000);
     }
   } catch (e) {
     console.error('Error polling task:', e);

@@ -440,7 +440,7 @@
     <div class="people-strip" id="peopleStrip"></div>
   </div>
 
-  <!-- 4. Find Your Photographs (Matches Image 3) -->
+  <!-- 4. Find Your Photographs -->
   <div class="finder-section">
     <div class="finder-icon-svg">
       <!-- Crisp SVG Face Scan Icon -->
@@ -455,8 +455,17 @@
       </svg>
     </div>
     <h2 class="finder-heading">Find your photographs</h2>
-    <p class="finder-subheading">Upload a selfie and discover your photographs from this event.</p>
-    <button class="btn-find-photos" id="openFinderBtn">Find My Photos</button>
+    <p class="finder-subheading">Take a selfie with your camera or upload a photo to discover your pictures with AI facial recognition.</p>
+    <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
+      <button class="btn-find-photos" id="cameraBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span>Take Selfie (Camera)</span>
+      </button>
+      <button class="btn-find-photos" id="uploadFileBtn" style="background:#ffffff;color:var(--ink);border:1px solid rgba(0,0,0,0.15);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Upload from Files</span>
+      </button>
+    </div>
   </div>
 
   <!-- 5. Dynamic Photos Viewer Section -->
@@ -524,22 +533,36 @@
 <div id="selfieModal" class="modal-backdrop" hidden>
   <div class="modal-box">
     <button class="modal-close" id="closeModalBtn">&times;</button>
-    <h3 style="font-family:'Playfair Display',serif;font-size:1.45rem;margin-bottom:0.4rem;">Find My Photos</h3>
-    <p style="color:var(--muted);font-size:0.88rem;">Take or upload a clear selfie to instantly find your photos across all celebration albums.</p>
+    <h3 style="font-family:'Playfair Display',serif;font-size:1.45rem;margin-bottom:0.4rem;">Find My Photographs</h3>
+    <p style="color:var(--muted);font-size:0.88rem;">Take a quick selfie or upload any clear picture of yourself.</p>
 
-    <div class="drop-box" id="dropArea">
-      <input type="file" id="selfieFile" accept="image/*" capture="user" style="display:none;">
+    <!-- Hidden native file inputs -->
+    <input type="file" id="selfieCameraInput" accept="image/*" capture="user" style="display:none;">
+    <input type="file" id="selfieFileInput" accept="image/*" style="display:none;">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin:1.25rem 0 0.75rem;">
+      <button type="button" class="btn-find-photos" id="modalCameraBtn" style="justify-content:center;padding:0.65rem 0.5rem;font-size:0.85rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span>Open Camera</span>
+      </button>
+      <button type="button" class="btn-find-photos" id="modalFilesBtn" style="justify-content:center;padding:0.65rem 0.5rem;font-size:0.85rem;background:#ffffff;color:var(--ink);border:1px solid rgba(0,0,0,0.15);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Browse Files</span>
+      </button>
+    </div>
+
+    <div class="drop-box" id="dropArea" style="margin-top:0.5rem;">
       <div id="dropPrompt">
-        <div style="font-size:2.2rem;margin-bottom:0.4rem;">📸</div>
-        <strong style="font-size:0.95rem;color:var(--ink);">Tap to take or choose selfie</strong>
-        <p style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;">Processed in-memory with InsightFace AI</p>
+        <div style="font-size:2rem;margin-bottom:0.25rem;">📸</div>
+        <strong style="font-size:0.9rem;color:var(--ink);">Or drag and drop photo here</strong>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:0.2rem;">Processed in-memory with InsightFace AI</p>
       </div>
       <img id="selfiePreview" style="max-height:160px;border-radius:10px;margin:0 auto;" hidden>
     </div>
 
     <label style="display:flex;gap:0.5rem;font-size:0.82rem;color:var(--muted);margin-bottom:1.25rem;cursor:pointer;">
       <input type="checkbox" id="consentCheck" checked style="accent-color:var(--accent);margin-top:0.15rem;">
-      <span>I agree to process my selfie to discover my matching photographs.</span>
+      <span>I agree to process my photo to find matching event photographs.</span>
     </label>
 
     <button id="startSearchBtn" class="btn-find-photos" style="width:100%;justify-content:center;padding:0.75rem;" disabled>
@@ -668,35 +691,88 @@ async function loadPersonPhotos(personId, personName) {
 }
 
 function renderPhotos(photosList) {
-  currentPhotosList = (photosList || []).slice().sort((a, b) => {
+  // 1. Deduplicate by unique filename so same photo in multiple folders is only shown once
+  const seenFnames = new Set();
+  const uniquePhotos = [];
+  for (const item of (photosList || [])) {
+    const fn = (typeof item === 'string' ? item.split('/').pop() : (item.filename || item.rel_path.split('/').pop())).toLowerCase();
+    if (!seenFnames.has(fn)) {
+      seenFnames.add(fn);
+      uniquePhotos.push(item);
+    }
+  }
+
+  // 2. Sort naturally by filename
+  uniquePhotos.sort((a, b) => {
     const nameA = (typeof a === 'string' ? a.split('/').pop() : (a.filename || a.rel_path.split('/').pop())).toLowerCase();
     const nameB = (typeof b === 'string' ? b.split('/').pop() : (b.filename || b.rel_path.split('/').pop())).toLowerCase();
     return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
   });
+
+  currentPhotosList = uniquePhotos;
   const grid = $('photosGrid');
   grid.replaceChildren();
+
   if (currentPhotosList.length === 0) {
     grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No photos found in this view.</div>';
     return;
   }
+
+  // Group photos by Event / Album if available
+  const groups = {};
   for (let idx = 0; idx < currentPhotosList.length; idx++) {
     const item = currentPhotosList[idx];
-    const p = typeof item === 'string' ? item : item.rel_path;
-    const enc = p.split('/').map(encodeURIComponent).join('/');
-    const card = document.createElement('div');
-    card.className = 'photo-card';
-    card.innerHTML = `
-      <img class="photo-img" src="/thumb/${enc}" alt="Photo" loading="lazy">
-      <div class="photo-actions">
-        <span style="font-size:0.75rem;color:var(--muted);font-family:monospace;">${p.split('/').pop()}</span>
-        <a class="photo-btn" href="/photo/${enc}" target="_blank" download>
-          ⬇ Download
-        </a>
-      </div>
-    `;
-    // Clicking the image opens high resolution view from Google Drive
-    card.querySelector('.photo-img').addEventListener('click', () => openPhotoLightbox(idx));
-    grid.append(card);
+    let groupTitle = '';
+    if (typeof item === 'object') {
+      if (item.event_name && item.album_name) {
+        groupTitle = `${item.event_name} — ${item.album_name}`;
+      } else if (item.album_name) {
+        groupTitle = item.album_name;
+      } else if (item.event_name) {
+        groupTitle = item.event_name;
+      }
+    }
+    if (!groupTitle) groupTitle = 'Celebration Photos';
+    if (!groups[groupTitle]) groups[groupTitle] = [];
+    groups[groupTitle].push({ item, idx });
+  }
+
+  const groupKeys = Object.keys(groups);
+  const showGroupHeaders = groupKeys.length > 1;
+
+  for (const gName of groupKeys) {
+    if (showGroupHeaders) {
+      const header = document.createElement('div');
+      header.className = 'group-section-title';
+      header.style.gridColumn = '1 / -1';
+      header.style.margin = '1.25rem 0 0.5rem';
+      header.style.fontSize = '1.05rem';
+      header.style.fontWeight = '700';
+      header.style.color = 'var(--ink)';
+      header.style.borderBottom = '1px solid rgba(0,0,0,0.06)';
+      header.style.paddingBottom = '0.4rem';
+      header.innerHTML = `<span>${gName}</span> <span style="font-size:0.8rem;color:var(--muted);font-weight:500;">(${groups[gName].length} photos)</span>`;
+      grid.append(header);
+    }
+
+    for (const { item, idx } of groups[gName]) {
+      const p = typeof item === 'string' ? item : item.rel_path;
+      const enc = p.split('/').map(encodeURIComponent).join('/');
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      card.innerHTML = `
+        <img class="photo-img" src="/thumb/${enc}" alt="Photo" loading="lazy">
+        <div class="photo-actions">
+          <span style="font-size:0.75rem;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">${p.split('/').pop()}</span>
+          <a class="photo-btn" href="/photo/${enc}" target="_blank" download>
+            ⬇ Download
+          </a>
+        </div>
+      `;
+      // Clicking the image opens high resolution view from Google Drive
+      card.querySelector('.photo-img').addEventListener('click', () => openPhotoLightbox(idx));
+      grid.append(card);
+    }
   }
 }
 
@@ -826,34 +902,50 @@ $('closePhotosBtn').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-// Modal handling
-$('openFinderBtn').addEventListener('click', () => $('selfieModal').hidden = false);
-$('closeModalBtn').addEventListener('click', () => $('selfieModal').hidden = true);
-$('dropArea').addEventListener('click', () => $('selfieFile').click());
+// Modal & Finder Handling
+let selectedSelfieFile = null;
 
-$('selfieFile').addEventListener('change', () => {
-  const f = $('selfieFile').files[0];
-  if (f) {
-    $('selfiePreview').src = URL.createObjectURL(f);
-    $('selfiePreview').hidden = false;
-    $('dropPrompt').hidden = true;
-    $('startSearchBtn').disabled = !$('consentCheck').checked;
-  }
+function handleSelfieSelect(file) {
+  if (!file) return;
+  selectedSelfieFile = file;
+  $('selfiePreview').src = URL.createObjectURL(file);
+  $('selfiePreview').hidden = false;
+  $('dropPrompt').hidden = true;
+  $('startSearchBtn').disabled = !$('consentCheck').checked;
+  $('selfieModal').hidden = false;
+}
+
+$('cameraBtn').addEventListener('click', () => $('selfieCameraInput').click());
+$('uploadFileBtn').addEventListener('click', () => $('selfieFileInput').click());
+
+$('modalCameraBtn').addEventListener('click', () => $('selfieCameraInput').click());
+$('modalFilesBtn').addEventListener('click', () => $('selfieFileInput').click());
+$('dropArea').addEventListener('click', () => $('selfieFileInput').click());
+
+$('selfieCameraInput').addEventListener('change', () => {
+  handleSelfieSelect($('selfieCameraInput').files[0]);
+});
+
+$('selfieFileInput').addEventListener('change', () => {
+  handleSelfieSelect($('selfieFileInput').files[0]);
+});
+
+$('closeModalBtn').addEventListener('click', () => {
+  $('selfieModal').hidden = true;
 });
 
 $('consentCheck').addEventListener('change', () => {
-  $('startSearchBtn').disabled = !($('selfieFile').files[0] && $('consentCheck').checked);
+  $('startSearchBtn').disabled = !(selectedSelfieFile && $('consentCheck').checked);
 });
 
 $('startSearchBtn').addEventListener('click', async () => {
-  const file = $('selfieFile').files[0];
-  if (!file) return;
+  if (!selectedSelfieFile) return;
 
   $('startSearchBtn').disabled = true;
-  $('searchStatus').textContent = 'Scanning face and matching across celebration albums...';
+  $('searchStatus').textContent = 'Scanning face and searching across celebration albums...';
 
   const fd = new FormData();
-  fd.append('selfie', file);
+  fd.append('selfie', selectedSelfieFile);
 
   try {
     const res = await fetch(`/api/${slug}/search`, { method: 'POST', body: fd });
@@ -862,7 +954,7 @@ $('startSearchBtn').addEventListener('click', async () => {
 
     $('selfieModal').hidden = true;
     $('photosSectionTitle').textContent = 'My Matched Photos';
-    $('photosSectionSubtitle').textContent = j.count === 1 ? '1 Photo Found' : `${j.count} Photos Found with your face`;
+    $('photosSectionSubtitle').textContent = j.count === 1 ? '1 Photo Found' : `${j.count} Unique Photos Found with your face`;
     renderPhotos(j.photos);
     $('photosSection').hidden = false;
     $('photosSection').scrollIntoView({ behavior: 'smooth' });
