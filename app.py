@@ -71,11 +71,15 @@ def search(selfie: UploadFile = File(...)):
 @app.get("/thumb/{name:path}")
 def thumb(name: str):
     if name not in known:
+        reload_index()
+    if name not in known:
         raise HTTPException(404)
     return FileResponse(DATA / "thumbs" / (name.replace("/", "__") + ".jpg"))
 
 @app.get("/photo/{name:path}")
 def photo(name: str):
+    if name not in known:
+        reload_index()
     if name not in known:
         raise HTTPException(404)
     return FileResponse(PHOTOS / name, filename=Path(name).name)
