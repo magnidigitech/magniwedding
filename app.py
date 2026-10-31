@@ -300,27 +300,69 @@ def event_search(slug: str, selfie: UploadFile = File(...)):
 @app.get("/thumb/{name:path}")
 def thumb(name: str):
     """Delivers 480px web thumbnail or cropped face avatar safely."""
+    # 1. Face avatars
     if name.startswith("faces/"):
         face_name = Path(name).name
         target = DATA / "faces" / face_name
         if target.exists():
             return FileResponse(target)
 
-    target = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
-    if not target.exists():
-        # Search in events/*/thumbs
-        candidates = list(DATA.glob(f"events/*/thumbs/{name.replace('/', '__')}.jpg"))
-        if candidates:
-            target = candidates[0]
-        else:
-            raise HTTPException(404)
-    return FileResponse(target)
+    # 2. Direct match in root thumbs directory
+    direct_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if direct_thumb.exists():
+        return FileResponse(direct_thumb)
+
+    # 3. Match in event-scoped thumbs: events/<slug>/<subpath> -> DATA/events/<slug>/thumbs/<subpath.replace('/', '__')>.jpg
+    if name.startswith("events/"):
+        parts = name.split("/", 2)
+        if len(parts) >= 3:
+            slug = parts[1]
+            sub = parts[2]
+            ev_thumb = DATA / "events" / slug / "thumbs" / (sub.replace("/", "__") + ".jpg")
+            if ev_thumb.exists():
+                return FileResponse(ev_thumb)
+
+    # 4. Search in any events/*/thumbs/ directory
+    fname = Path(name).name
+    candidates = list(DATA.glob(f"events/*/thumbs/*{fname}*.jpg"))
+    if candidates and candidates[0].exists():
+        return FileResponse(candidates[0])
+
+    candidates = list(DATA.glob(f"thumbs/*{fname}*.jpg"))
+    if candidates and candidates[0].exists():
+        return FileResponse(candidates[0])
+
+    # 5. On-the-fly thumbnail generation from original photo on disk
+    photo_file = PHOTOS / name
+    if not photo_file.exists():
+        matches = list(PHOTOS.glob(f"**/{fname}"))
+        if matches:
+            photo_file = matches[0]
+
+    if photo_file.exists():
+        try:
+            img = ImageOps.exif_transpose(Image.open(photo_file)).convert("RGB")
+            img.thumbnail((480, 480))
+            cache_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+            cache_thumb.parent.mkdir(parents=True, exist_ok=True)
+            img.save(cache_thumb, quality=80)
+            return FileResponse(cache_thumb)
+        except Exception:
+            return FileResponse(photo_file)
+
+    raise HTTPException(404, "Thumbnail not found")
 
 @app.get("/photo/{name:path}")
 def photo(name: str):
     """Delivers full image or redirects directly to Google Drive 5TB storage."""
     reload_drive_map()
-    drive_id = drive_map.get(name)
+    fname = Path(name).name
+    drive_id = drive_map.get(name) or drive_map.get(fname)
+    if not drive_id:
+        for k, v in drive_map.items():
+            if k.endswith(fname):
+                drive_id = v
+                break
     if drive_id:
         return RedirectResponse(
             f"https://drive.google.com/uc?export=download&id={drive_id}",
@@ -328,8 +370,12 @@ def photo(name: str):
         )
     target = PHOTOS / name
     if not target.exists():
-        raise HTTPException(404)
-    return FileResponse(target, filename=Path(name).name)
+        matches = list(PHOTOS.glob(f"**/{fname}"))
+        if matches:
+            target = matches[0]
+        else:
+            raise HTTPException(404, "Photo not found")
+    return FileResponse(target, filename=fname)
 
 # --- Public Event Metadata APIs ---
 
