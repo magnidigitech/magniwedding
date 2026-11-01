@@ -917,7 +917,7 @@ def sync_event_folders_and_photos(slug: str):
                 continue
             display_name = folder_name.replace("-", " ").replace("_", " ").title()
 
-            cursor.execute("SELECT id FROM albums WHERE event_id = ? AND (slug = ? OR name = ?)", (eid, album_slug, display_name))
+            cursor.execute("SELECT id, is_deleted FROM albums WHERE event_id = ? AND (slug = ? OR name = ?)", (eid, album_slug, display_name))
             arow = cursor.fetchone()
             if not arow:
                 cursor.execute("""
@@ -926,6 +926,8 @@ def sync_event_folders_and_photos(slug: str):
                 """, (eid, album_slug, display_name, eid))
                 album_id = cursor.lastrowid
             else:
+                if arow["is_deleted"]:
+                    continue  # Trashed album: skip syncing its contents
                 album_id = arow["id"]
 
             for f in d.iterdir():
@@ -937,12 +939,8 @@ def sync_event_folders_and_photos(slug: str):
                         VALUES (?, ?, ?, ?, ?, 0)
                         ON CONFLICT(event_id, rel_path) DO UPDATE SET
                             album_id = excluded.album_id,
-                            file_size_bytes = excluded.file_size_bytes,
-                            is_deleted = 0
+                            file_size_bytes = excluded.file_size_bytes
                     """, (eid, album_id, f.name, rel, fsize))
-                    cursor.execute("""
-                        UPDATE photos SET album_id = ?, is_deleted = 0 WHERE event_id = ? AND rel_path = ?
-                    """, (album_id, eid, rel))
 
         # Direct files in event root
         for f in event_dir.iterdir():
@@ -985,7 +983,7 @@ def admin_event_workspace(slug: str, token: str = Depends(get_auth_token)):
         SELECT a.*, COUNT(p.id) as photo_count
         FROM albums a
         LEFT JOIN photos p ON a.id = p.album_id AND p.is_deleted = 0
-        WHERE a.event_id = ?
+        WHERE a.event_id = ? AND a.is_deleted = 0
         GROUP BY a.id
         ORDER BY a.sort_order ASC, a.name ASC
     """, (event["id"],))
@@ -1047,6 +1045,7 @@ def admin_create_album(slug: str, payload: dict, token: str = Depends(get_auth_t
     return {"status": "ok", "album_slug": album_slug}
 
 @app.put("/api/admin/events/{slug}")
+@app.post("/api/admin/events/{slug}/update")
 def admin_update_event(slug: str, payload: dict, token: str = Depends(get_auth_token)):
     conn = get_db()
     cursor = conn.cursor()
@@ -1060,6 +1059,7 @@ def admin_update_event(slug: str, payload: dict, token: str = Depends(get_auth_t
     name = payload.get("name", "").strip() or event["name"]
     location = payload.get("location", event["location"] or "")
     description = payload.get("description", event["description"] or "")
+    event_date = payload.get("event_date", event["event_date"] or "")
 
     # Prevent renaming active slug if a task is running into it
     if current_task.get("status") == "running" and current_task.get("event") == slug and new_slug != slug:
@@ -1067,7 +1067,7 @@ def admin_update_event(slug: str, payload: dict, token: str = Depends(get_auth_t
         raise HTTPException(409, "Cannot rename event slug while a background task is running on it. Please wait for completion.")
 
     if new_slug != slug:
-        cursor.execute("SELECT id FROM events WHERE slug = ?", (new_slug,))
+        cursor.execute("SELECT id FROM events WHERE slug = ? AND id != ?", (new_slug, event["id"]))
         if cursor.fetchone():
             conn.close()
             raise HTTPException(400, f"Event slug '{new_slug}' is already in use.")
@@ -1091,14 +1091,40 @@ def admin_update_event(slug: str, payload: dict, token: str = Depends(get_auth_t
 
     cursor.execute("""
         UPDATE events
-        SET slug = ?, name = ?, location = ?, description = ?
+        SET slug = ?, name = ?, location = ?, description = ?, event_date = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-    """, (new_slug, name, location, description, event["id"]))
+    """, (new_slug, name, location, description, event_date, event["id"]))
     conn.commit()
     conn.close()
     return {"status": "ok", "slug": new_slug, "name": name}
 
+@app.delete("/api/admin/events/{slug}")
+@app.post("/api/admin/events/{slug}/delete")
+def admin_delete_event(slug: str, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, slug FROM events WHERE slug = ?", (slug,))
+    ev = cursor.fetchone()
+    if not ev:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+
+    if current_task.get("status") == "running" and current_task.get("event") == slug:
+        conn.close()
+        raise HTTPException(409, "Cannot delete event while a background task is running on it.")
+
+    # Soft-delete: move to trash
+    cursor.execute("UPDATE events SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (ev["id"],))
+    cursor.execute("UPDATE albums SET is_deleted = 1, is_published = 0 WHERE event_id = ?", (ev["id"],))
+    cursor.execute("UPDATE photos SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE event_id = ?", (ev["id"],))
+    conn.commit()
+    conn.close()
+
+    append_log(f"Moved event '{ev['name']}' ({slug}) and its contents to Trash.")
+    return {"status": "ok", "deleted_event": slug, "message": f"Event '{ev['name']}' moved to Trash."}
+
 @app.put("/api/admin/events/{slug}/albums/{album_id}")
+@app.post("/api/admin/events/{slug}/albums/{album_id}/update")
 def admin_update_album(slug: str, album_id: int, payload: dict, token: str = Depends(get_auth_token)):
     conn = get_db()
     cursor = conn.cursor()
@@ -1158,6 +1184,7 @@ def admin_update_album(slug: str, album_id: int, payload: dict, token: str = Dep
     return {"status": "ok", "album_slug": new_slug, "name": name}
 
 @app.delete("/api/admin/events/{slug}/albums/{album_id}")
+@app.post("/api/admin/events/{slug}/albums/{album_id}/delete")
 def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_token)):
     conn = get_db()
     cursor = conn.cursor()
@@ -1169,38 +1196,14 @@ def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_t
 
     album_slug = album["slug"]
 
-    # Delete photos and face detections associated with this album
-    cursor.execute("SELECT id, rel_path FROM photos WHERE album_id = ?", (album_id,))
-    photo_rows = cursor.fetchall()
-    pids = [r["id"] for r in photo_rows]
-    if pids:
-        cursor.execute(f"DELETE FROM face_detections WHERE photo_id IN ({','.join('?' for _ in pids)})", pids)
-        cursor.execute(f"DELETE FROM photos WHERE id IN ({','.join('?' for _ in pids)})", pids)
-
-    cursor.execute("DELETE FROM albums WHERE id = ?", (album_id,))
+    # Soft-delete album and its photos to Trash
+    cursor.execute("UPDATE albums SET is_deleted = 1, is_published = 0 WHERE id = ?", (album_id,))
+    cursor.execute("UPDATE photos SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE album_id = ?", (album_id,))
     conn.commit()
     conn.close()
 
-    # Remove physical folder from disk so sync doesn't resurrect it
-    if slug in {"default", "wedding"}:
-        folder_dir = PHOTOS / album_slug
-        thumbs_dir = DATA / "thumbs"
-    else:
-        folder_dir = PHOTOS / "events" / slug / album_slug
-        thumbs_dir = DATA / "events" / slug / "thumbs"
-
-    if folder_dir.exists():
-        shutil.rmtree(folder_dir, ignore_errors=True)
-
-    if thumbs_dir.exists():
-        for th in thumbs_dir.glob(f"{album_slug}__*"):
-            try:
-                th.unlink()
-            except Exception:
-                pass
-
-    append_log(f"Deleted album '{album['name']}' ({album_slug}) and its files from event '{slug}'.")
-    return {"status": "ok", "deleted_album": album_slug}
+    append_log(f"Moved folder '{album['name']}' ({album_slug}) in event '{slug}' to Trash.")
+    return {"status": "ok", "deleted_album": album_slug, "message": f"Folder '{album['name']}' moved to Trash."}
 
 @app.get("/api/admin/events/{slug}/photos")
 def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends(get_auth_token)):
@@ -1213,7 +1216,7 @@ def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends
             FROM photos p
             JOIN events e ON p.event_id = e.id
             LEFT JOIN albums a ON p.album_id = a.id
-            WHERE e.slug = ? AND p.album_id = ? AND p.is_deleted = 0
+            WHERE e.slug = ? AND p.album_id = ? AND (a.is_deleted = 0 OR a.is_deleted IS NULL) AND p.is_deleted = 0
             ORDER BY p.is_featured DESC, p.filename ASC
         """, (slug, album_id))
     else:
@@ -1222,7 +1225,7 @@ def admin_event_all_photos(slug: str, album_id: int = None, token: str = Depends
             FROM photos p
             JOIN events e ON p.event_id = e.id
             LEFT JOIN albums a ON p.album_id = a.id
-            WHERE e.slug = ? AND p.is_deleted = 0
+            WHERE e.slug = ? AND (a.is_deleted = 0 OR a.is_deleted IS NULL) AND p.is_deleted = 0
             ORDER BY p.is_featured DESC, p.filename ASC
         """, (slug,))
     photos = [dict(r) for r in cursor.fetchall()]
@@ -1294,6 +1297,190 @@ def admin_set_album_cover(slug: str, album_id: int, payload: dict, token: str = 
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+@app.post("/api/admin/events/{slug}/photos/{photo_id}/toggle-feature")
+def admin_toggle_photo_featured(slug: str, photo_id: int, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_featured FROM photos WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)", (photo_id, slug))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "Photo not found")
+    new_state = 0 if row["is_featured"] else 1
+    cursor.execute("UPDATE photos SET is_featured = ? WHERE id = ?", (new_state, photo_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "photo_id": photo_id, "is_featured": new_state}
+
+# --- Trash Management APIs ---
+
+@app.get("/api/admin/trash")
+def admin_get_trash(token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, slug, name, event_type, created_at, updated_at
+        FROM events
+        WHERE status = 'archived'
+        ORDER BY updated_at DESC
+    """)
+    trashed_events = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT a.id, a.slug, a.name, a.event_id, e.name as event_name, e.slug as event_slug, a.created_at
+        FROM albums a
+        JOIN events e ON a.event_id = e.id
+        WHERE a.is_deleted = 1
+        ORDER BY a.id DESC
+    """)
+    trashed_albums = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT p.id, p.filename, p.rel_path, p.album_id, p.event_id, e.name as event_name, e.slug as event_slug,
+               COALESCE(a.name, 'Unassigned') as album_name, p.deleted_at
+        FROM photos p
+        JOIN events e ON p.event_id = e.id
+        LEFT JOIN albums a ON p.album_id = a.id
+        WHERE p.is_deleted = 1
+        ORDER BY p.deleted_at DESC, p.id DESC LIMIT 400
+    """)
+    trashed_photos = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return {
+        "events": trashed_events,
+        "albums": trashed_albums,
+        "photos": trashed_photos
+    }
+
+@app.post("/api/admin/trash/restore")
+def admin_restore_trash(payload: dict, token: str = Depends(get_auth_token)):
+    item_type = payload.get("type")  # 'event' | 'album' | 'photo'
+    item_id = payload.get("id")
+    photo_ids = payload.get("photo_ids", [])
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if item_type == "event":
+        cursor.execute("UPDATE events SET status = 'published', updated_at = CURRENT_TIMESTAMP WHERE id = ? OR slug = ?", (item_id, str(item_id)))
+        # Restore associated albums and photos
+        cursor.execute("UPDATE albums SET is_deleted = 0, is_published = 1 WHERE event_id = (SELECT id FROM events WHERE id = ? OR slug = ?)", (item_id, str(item_id)))
+        cursor.execute("UPDATE photos SET is_deleted = 0 WHERE event_id = (SELECT id FROM events WHERE id = ? OR slug = ?)", (item_id, str(item_id)))
+    elif item_type == "album":
+        cursor.execute("UPDATE albums SET is_deleted = 0, is_published = 1 WHERE id = ?", (item_id,))
+        cursor.execute("UPDATE photos SET is_deleted = 0 WHERE album_id = ?", (item_id,))
+    elif item_type == "photo":
+        ids = photo_ids or ([item_id] if item_id else [])
+        if ids:
+            cursor.execute(f"UPDATE photos SET is_deleted = 0 WHERE id IN ({','.join('?' for _ in ids)})", ids)
+    else:
+        conn.close()
+        raise HTTPException(400, "Invalid item type.")
+
+    conn.commit()
+    conn.close()
+    append_log(f"Restored {item_type} (id: {item_id or photo_ids}) from Trash.")
+    return {"status": "ok", "restored": item_type}
+
+@app.post("/api/admin/trash/permanent-delete")
+def admin_permanent_delete_trash(payload: dict, token: str = Depends(get_auth_token)):
+    item_type = payload.get("type")  # 'event' | 'album' | 'photo' | 'all'
+    item_id = payload.get("id")
+    photo_ids = payload.get("photo_ids", [])
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if item_type == "event":
+        cursor.execute("SELECT id, slug, name FROM events WHERE (id = ? OR slug = ?) AND status = 'archived'", (item_id, str(item_id)))
+        ev = cursor.fetchone()
+        if ev:
+            eid = ev["id"]
+            slug = ev["slug"]
+            cursor.execute("DELETE FROM face_detections WHERE event_id = ?", (eid,))
+            cursor.execute("DELETE FROM photos WHERE event_id = ?", (eid,))
+            cursor.execute("DELETE FROM albums WHERE event_id = ?", (eid,))
+            cursor.execute("DELETE FROM person_profiles WHERE event_id = ?", (eid,))
+            cursor.execute("DELETE FROM events WHERE id = ?", (eid,))
+            ev_dir = PHOTOS / "events" / slug
+            if ev_dir.exists():
+                shutil.rmtree(ev_dir, ignore_errors=True)
+            data_ev_dir = DATA / "events" / slug
+            if data_ev_dir.exists():
+                shutil.rmtree(data_ev_dir, ignore_errors=True)
+            append_log(f"Permanently purged event '{ev['name']}' ({slug}) and removed disk files.")
+
+    elif item_type == "album":
+        cursor.execute("SELECT a.id, a.slug, a.name, e.slug as event_slug FROM albums a JOIN events e ON a.event_id = e.id WHERE a.id = ? AND a.is_deleted = 1", (item_id,))
+        alb = cursor.fetchone()
+        if alb:
+            aid = alb["id"]
+            aslug = alb["slug"]
+            eslug = alb["event_slug"]
+            cursor.execute("SELECT id, rel_path FROM photos WHERE album_id = ?", (aid,))
+            p_rows = cursor.fetchall()
+            pids = [r["id"] for r in p_rows]
+            if pids:
+                cursor.execute(f"DELETE FROM face_detections WHERE photo_id IN ({','.join('?' for _ in pids)})", pids)
+                cursor.execute(f"DELETE FROM photos WHERE id IN ({','.join('?' for _ in pids)})", pids)
+            cursor.execute("DELETE FROM albums WHERE id = ?", (aid,))
+            alb_dir = PHOTOS / "events" / eslug / aslug if eslug not in {"default", "wedding"} else PHOTOS / aslug
+            if alb_dir.exists():
+                shutil.rmtree(alb_dir, ignore_errors=True)
+            append_log(f"Permanently purged album '{alb['name']}' ({aslug}) and removed folder from disk.")
+
+    elif item_type == "photo":
+        ids = photo_ids or ([item_id] if item_id else [])
+        if ids:
+            cursor.execute(f"SELECT id, rel_path FROM photos WHERE id IN ({','.join('?' for _ in ids)}) AND is_deleted = 1", ids)
+            rows = cursor.fetchall()
+            for r in rows:
+                rel = r["rel_path"]
+                fpath = PHOTOS / rel
+                if fpath.exists():
+                    try: fpath.unlink()
+                    except Exception: pass
+                tpath = DATA / "thumbs" / (rel.replace("/", "__") + ".jpg")
+                if tpath.exists():
+                    try: tpath.unlink()
+                    except Exception: pass
+            cursor.execute(f"DELETE FROM face_detections WHERE photo_id IN ({','.join('?' for _ in ids)})", ids)
+            cursor.execute(f"DELETE FROM photos WHERE id IN ({','.join('?' for _ in ids)})", ids)
+            append_log(f"Permanently purged {len(rows)} photos and their files from disk.")
+
+    elif item_type == "all":
+        cursor.execute("SELECT id, rel_path FROM photos WHERE is_deleted = 1")
+        for r in cursor.fetchall():
+            fpath = PHOTOS / r["rel_path"]
+            if fpath.exists():
+                try: fpath.unlink()
+                except Exception: pass
+            tpath = DATA / "thumbs" / (r["rel_path"].replace("/", "__") + ".jpg")
+            if tpath.exists():
+                try: tpath.unlink()
+                except Exception: pass
+        cursor.execute("DELETE FROM photos WHERE is_deleted = 1")
+
+        cursor.execute("SELECT a.id, a.slug, e.slug as eslug FROM albums a JOIN events e ON a.event_id = e.id WHERE a.is_deleted = 1")
+        for a in cursor.fetchall():
+            adir = PHOTOS / "events" / a["eslug"] / a["slug"] if a["eslug"] not in {"default", "wedding"} else PHOTOS / a["slug"]
+            if adir.exists():
+                shutil.rmtree(adir, ignore_errors=True)
+        cursor.execute("DELETE FROM albums WHERE is_deleted = 1")
+
+        cursor.execute("SELECT id, slug FROM events WHERE status = 'archived'")
+        for ev in cursor.fetchall():
+            edir = PHOTOS / "events" / ev["slug"]
+            if edir.exists():
+                shutil.rmtree(edir, ignore_errors=True)
+            ddir = DATA / "events" / ev["slug"]
+            if ddir.exists():
+                shutil.rmtree(ddir, ignore_errors=True)
+            cursor.execute("DELETE FROM events WHERE id = ?", (ev["id"],))
+        append_log("Permanently purged all Trash items from database and VPS disk.")
+
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "message": "Permanently deleted from disk."}
 
 @app.post("/api/admin/events/{slug}/upload")
 async def admin_upload_to_event(

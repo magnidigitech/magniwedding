@@ -702,8 +702,11 @@ function renderPhotos(photosList) {
     }
   }
 
-  // 2. Sort naturally by filename
+  // 2. Sort: Featured photos placed in the beginning, followed by remaining images in alphabetical order
   uniquePhotos.sort((a, b) => {
+    const featA = (typeof a === 'object' && a.is_featured) ? 1 : 0;
+    const featB = (typeof b === 'object' && b.is_featured) ? 1 : 0;
+    if (featA !== featB) return featB - featA; // Featured photos first
     const nameA = (typeof a === 'string' ? a.split('/').pop() : (a.filename || a.rel_path.split('/').pop())).toLowerCase();
     const nameB = (typeof b === 'string' ? b.split('/').pop() : (b.filename || b.rel_path.split('/').pop())).toLowerCase();
     return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
@@ -760,7 +763,10 @@ function renderPhotos(photosList) {
       const enc = p.split('/').map(encodeURIComponent).join('/');
       const card = document.createElement('div');
       card.className = 'photo-card';
+      card.style.position = 'relative';
+      const isFeat = typeof item === 'object' && item.is_featured;
       card.innerHTML = `
+        ${isFeat ? '<span style="position:absolute;top:8px;right:8px;background:rgba(217,119,6,0.92);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.7rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.2);z-index:2;">★ Featured</span>' : ''}
         <img class="photo-img" src="/thumb/${enc}" alt="Photo" loading="lazy">
         <div class="photo-actions">
           <span style="font-size:0.75rem;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">${p.split('/').pop()}</span>

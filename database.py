@@ -17,6 +17,11 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA foreign_keys = ON;")
+    try:
+        conn.execute("ALTER TABLE albums ADD COLUMN is_deleted BOOLEAN DEFAULT 0;")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 def init_db():
