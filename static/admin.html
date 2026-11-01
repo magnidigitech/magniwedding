@@ -1461,6 +1461,39 @@
 
 <script>
 const $ = id => document.getElementById(id);
+
+// Global Authenticated Fetch Wrapper ensuring X-Admin-Token & credentials
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+  options = options || {};
+  options.headers = options.headers || {};
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    if (options.headers instanceof Headers) {
+      if (!options.headers.has('X-Admin-Token')) options.headers.set('X-Admin-Token', token);
+    } else if (Array.isArray(options.headers)) {
+      if (!options.headers.some(([k]) => k.toLowerCase() === 'x-admin-token')) {
+        options.headers.push(['X-Admin-Token', token]);
+      }
+    } else {
+      if (!options.headers['X-Admin-Token']) {
+        options.headers['X-Admin-Token'] = token;
+      }
+    }
+  }
+  if (!options.credentials) {
+    options.credentials = 'same-origin';
+  }
+  const res = await originalFetch.call(window, url, options);
+  // Auto-redirect to login on 401 Unauthorized for admin API calls
+  if (res.status === 401 && typeof url === 'string' && url.includes('/api/admin/') && !url.includes('/api/admin/login')) {
+    localStorage.removeItem('admin_token');
+    $('authView').hidden = false;
+    $('appShell').hidden = true;
+  }
+  return res;
+};
+
 let activeSlug = localStorage.getItem('admin_active_event_slug') || 'anilkumar-vengamamba';
 let allEvents = [];
 let allAlbums = [];
@@ -1591,20 +1624,30 @@ async function checkAuth() {
       const targetTab = urlParams.get('tab') || localStorage.getItem('admin_active_tab') || 'dashboard';
       switchTab(targetTab);
       pollTaskStatus();
+      return true;
     } else {
+      localStorage.removeItem('admin_token');
+      $('authView').hidden = false;
+      $('appShell').hidden = true;
+      return false;
+    }
+  } catch (e) {
+    console.error('checkAuth error:', e);
+    if (!localStorage.getItem('admin_token')) {
       $('authView').hidden = false;
       $('appShell').hidden = true;
     }
-  } catch (e) {
-    $('authView').hidden = false;
-    $('appShell').hidden = true;
+    return false;
   }
 }
 
 $('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const key = $('adminKey').value.trim();
-  $('loginBtn').disabled = true;
+  if (!key) return;
+  const btn = $('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'Authenticating...';
   $('loginAlert').hidden = true;
   try {
     const res = await fetch('/api/admin/login', {
@@ -1613,23 +1656,35 @@ $('loginForm').addEventListener('submit', async e => {
       body: JSON.stringify({ key })
     });
     const j = await res.json();
-    if (res.ok) {
-      checkAuth();
+    if (res.ok && j.token) {
+      localStorage.setItem('admin_token', j.token);
+      localStorage.setItem('admin_active_tab', 'dashboard');
+      $('authView').hidden = true;
+      $('appShell').hidden = false;
+      await checkAuth();
+      switchTab('dashboard');
     } else {
       $('loginAlert').textContent = j.detail || 'Invalid security passkey.';
       $('loginAlert').hidden = false;
     }
   } catch (err) {
-    $('loginAlert').textContent = 'Server connection error.';
+    $('loginAlert').textContent = 'Server connection error: ' + (err.message || 'Unable to reach backend.');
     $('loginAlert').hidden = false;
   } finally {
-    $('loginBtn').disabled = false;
+    btn.disabled = false;
+    btn.textContent = 'Authenticate';
   }
 });
 
 $('logoutBtn').addEventListener('click', async () => {
-  await fetch('/api/admin/logout', { method: 'POST' });
-  location.reload();
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_active_tab');
+  try {
+    await fetch('/api/admin/logout', { method: 'POST' });
+  } catch (e) {}
+  $('appShell').hidden = true;
+  $('authView').hidden = false;
+  window.location.href = '/admin';
 });
 
 // Event Selector & Workspace Management
