@@ -663,13 +663,9 @@ def thumb(name: str):
             try:
                 cache_thumb.parent.mkdir(parents=True, exist_ok=True)
                 with Image.open(photo_file) as img:
-                    try:
-                        img.draft("RGB", (480, 480))
-                    except Exception:
-                        pass
                     img = ImageOps.exif_transpose(img).convert("RGB")
-                    img.thumbnail((480, 480))
-                    img.save(cache_thumb, "JPEG", quality=80, optimize=True)
+                    img.thumbnail((1080, 1080), Image.Resampling.LANCZOS)
+                    img.save(cache_thumb, "JPEG", quality=84, optimize=True)
                 return FileResponse(cache_thumb)
             except Exception:
                 return FileResponse(photo_file)
@@ -779,6 +775,11 @@ def public_album_photos(slug: str, album_slug: str):
     """, (album["id"],))
     photos = [dict(row) for row in cursor.fetchall()]
     conn.close()
+
+    reload_drive_map()
+    for p in photos:
+        if not p.get("drive_file_id"):
+            p["drive_file_id"] = drive_map.get(p["filename"]) or drive_map.get(p["rel_path"])
     
     return {"album": dict(album), "photos": photos}
 
@@ -1692,7 +1693,11 @@ def public_event_people(slug: str):
 
 @app.get("/api/public/events/{slug}/people/{person_id}/photos")
 def public_person_photos(slug: str, person_id: int):
+    reload_drive_map()
     photos = get_person_photos(slug, person_id)
+    for p in photos:
+        if not p.get("drive_file_id"):
+            p["drive_file_id"] = drive_map.get(p["filename"]) or drive_map.get(p["rel_path"])
     return {"photos": photos}
 
 @app.get("/api/admin/storage")
