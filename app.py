@@ -712,6 +712,45 @@ def photo(name: str):
         )
     raise HTTPException(404, "Photo not found")
 
+@app.get("/preview/{name:path}")
+def preview(name: str):
+    """Serves studio-quality 1600px HD preview for lightbox viewer, cached on VPS for instant 1ms response."""
+    cache_preview = DATA / "previews" / (name.replace("/", "__") + ".jpg")
+    if cache_preview.exists():
+        return FileResponse(cache_preview, media_type="image/jpeg")
+
+    fname = Path(name).name
+    target = PHOTOS / name
+    if not target.exists():
+        matches = list(PHOTOS.glob(f"**/{fname}"))
+        if matches:
+            target = matches[0]
+
+    if target.exists():
+        try:
+            cache_preview.parent.mkdir(parents=True, exist_ok=True)
+            with Image.open(target) as img:
+                img = ImageOps.exif_transpose(img).convert("RGB")
+                img.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                img.save(cache_preview, "JPEG", quality=86, optimize=True)
+            return FileResponse(cache_preview, media_type="image/jpeg")
+        except Exception:
+            return FileResponse(target, media_type="image/jpeg")
+
+    # Fallback to high-res thumbnail if original not found
+    thumb_path = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if thumb_path.exists():
+        return FileResponse(thumb_path, media_type="image/jpeg")
+
+    if name.startswith("events/"):
+        parts = name.split("/", 2)
+        if len(parts) >= 3:
+            ev_thumb = DATA / "events" / parts[1] / "thumbs" / (parts[2].replace("/", "__") + ".jpg")
+            if ev_thumb.exists():
+                return FileResponse(ev_thumb, media_type="image/jpeg")
+
+    raise HTTPException(404, "Preview photo not found")
+
 @app.get("/download/hd/{name:path}")
 def download_hd(name: str):
     """Downloads HD (1080p/1920p) optimized photo directly from VPS storage as attachment."""

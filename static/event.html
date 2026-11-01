@@ -498,7 +498,7 @@
     background: rgba(255, 255, 255, 0.32); transform: scale(1.08);
   }
 
-  /* Card Stack Stage for Tinder-Style Swipe Physics */
+  /* Card Stack Stage for Dribbble / Tinder-Style Swipe Physics */
   .lightbox-img-wrap {
     flex: 1; display: flex; align-items: center; justify-content: center;
     max-width: 1200px; width: 100%; overflow: hidden; position: relative;
@@ -507,32 +507,57 @@
   .card-stage {
     position: relative; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
+    perspective: 1200px;
+    touch-action: none;
+    overflow: hidden;
   }
   .stack-card {
     position: absolute; inset: 0; display: flex;
     align-items: center; justify-content: center;
-    will-change: transform, opacity;
+    will-change: transform, opacity, filter;
     user-select: none; -webkit-user-select: none;
     transform-origin: center center;
+    pointer-events: none;
   }
   .card-behind {
-    z-index: 1; transform: scale(0.92) translate3d(0, 0, 0);
-    opacity: 0.7; filter: brightness(0.85); pointer-events: none;
-    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease, filter 0.24s ease;
+    z-index: 1;
+    transform: scale(0.92) translate3d(0, 16px, 0);
+    opacity: 0.95;
+    filter: brightness(0.85);
+    pointer-events: none;
   }
   .card-current {
-    z-index: 2; transform: scale(1) translate3d(0, 0, 0) rotate(0deg);
-    opacity: 1; cursor: grab;
+    z-index: 2;
+    transform: scale(1) translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+    filter: brightness(1);
+    cursor: grab;
+    pointer-events: auto;
   }
   .card-current:active {
     cursor: grabbing;
   }
   .lightbox-img {
-    max-width: 100%; max-height: 84vh; object-fit: contain; border-radius: 12px;
-    box-shadow: 0 16px 50px rgba(0,0,0,0.65);
+    max-width: 90vw;
+    max-height: 80vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 20px;
+    box-shadow: 0 24px 60px -8px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.1);
     pointer-events: none;
     transform-origin: center center;
     will-change: transform;
+    background: #0d1412;
+    transition: box-shadow 0.2s ease;
+  }
+  @media (max-width: 640px) {
+    .lightbox-img {
+      max-width: 92vw;
+      max-height: 72vh;
+      border-radius: 18px;
+      box-shadow: 0 18px 45px -6px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
   }
 
   /* Focused Photo Pulse on Back-Scroll */
@@ -718,15 +743,15 @@
       </svg>
     </button>
 
-    <!-- Card Stage for Tinder/Apple Card Stack Animation -->
+    <!-- Card Stage for Dribbble/Apple Card Stack Animation -->
     <div class="card-stage" id="cardStage">
-      <!-- Underlying card (depth layer) -->
-      <div class="stack-card card-behind" id="cardBehind">
-        <img id="imgBehind" class="lightbox-img" alt="Adjacent Photo">
+      <!-- Card B (underlying layer) -->
+      <div class="stack-card card-behind" id="cardB">
+        <img id="imgB" class="lightbox-img" alt="Adjacent Photo" fetchpriority="low">
       </div>
-      <!-- Top active card -->
-      <div class="stack-card card-current" id="cardCurrent">
-        <img id="lightboxImg" class="lightbox-img" alt="Current Photo">
+      <!-- Card A (foreground layer) -->
+      <div class="stack-card card-current" id="cardA">
+        <img id="imgA" class="lightbox-img" alt="Current Photo" fetchpriority="high">
       </div>
     </div>
 
@@ -998,14 +1023,24 @@ let startPanY = 0;
 let initialPinchDist = 0;
 let initialPinchScale = 1;
 let lastTap = 0;
-let lightboxToken = 0;
 
-// Card Drag / Tinder-Swipe State
+// Card Deck Elements & Roles (Dribbble 3D Physical Deck)
+let cardA = null;
+let cardB = null;
+let imgA = null;
+let imgB = null;
+let activeCard = null;
+let behindCard = null;
+let activeImg = null;
+let behindImg = null;
+
+// Card Drag / Swipe State
 let isCardDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
 let currentDragX = 0;
 let currentDragY = 0;
+let dragDirection = 0; // 1 = right (prev), -1 = left (next)
 let isTransitioning = false;
 
 // Web Audio API Swipe Sound & Mute Preference
@@ -1062,16 +1097,26 @@ $('lightboxSoundBtn').addEventListener('click', e => {
 });
 updateSoundButton();
 
+function initCardDeck() {
+  cardA = $('cardA');
+  cardB = $('cardB');
+  imgA = $('imgA');
+  imgB = $('imgB');
+  activeCard = cardA;
+  behindCard = cardB;
+  activeImg = imgA;
+  behindImg = imgB;
+}
+
 function updateImgTransform() {
-  const card = $('cardCurrent');
-  if (!card) return;
+  if (!activeCard) return;
   if (zoomScale <= 1) {
     zoomScale = 1;
     panX = 0;
     panY = 0;
-    card.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+    activeCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
   } else {
-    card.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoomScale})`;
+    activeCard.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoomScale})`;
   }
 }
 
@@ -1096,14 +1141,7 @@ function getPhotoFilename(item) {
   return p.split('/').pop();
 }
 
-// High-Resolution Lightbox Viewer with Tinder-Style Card Stack & Apple Physics
-function openPhotoLightbox(index, animationDir = 0) {
-  if (currentPhotosList.length === 0) return;
-  if (index < 0) index = currentPhotosList.length - 1;
-  if (index >= currentPhotosList.length) index = 0;
-  currentPhotoIndex = index;
-  resetZoom();
-
+function updateLightboxHeader(index) {
   const item = currentPhotosList[index];
   const enc = getPhotoEnc(item);
   const filename = getPhotoFilename(item);
@@ -1112,7 +1150,6 @@ function openPhotoLightbox(index, animationDir = 0) {
   $('lightboxFilename').textContent = filename;
   $('lightboxFilename').title = filename;
 
-  // Set Direct Server Download Buttons (NO Google Drive Login Prompt!)
   const hdBtn = $('lightboxDownloadHdBtn');
   hdBtn.href = `/download/hd/${enc}`;
   hdBtn.setAttribute('download', `${filename.replace(/\.[^/.]+$/, "")}_HD.jpg`);
@@ -1120,80 +1157,127 @@ function openPhotoLightbox(index, animationDir = 0) {
   const btn4k = $('lightboxDownload4kBtn');
   btn4k.href = `/download/4k/${enc}`;
   btn4k.setAttribute('download', filename);
+}
 
-  const cardCurrent = $('cardCurrent');
-  const cardBehind = $('cardBehind');
-  const imgCurrent = $('lightboxImg');
-  const imgBehind = $('imgBehind');
+// Studio-Quality Lightbox Viewer with Dribbble Card Physics
+function openPhotoLightbox(index) {
+  if (currentPhotosList.length === 0) return;
+  if (index < 0) index = currentPhotosList.length - 1;
+  if (index >= currentPhotosList.length) index = 0;
+  currentPhotoIndex = index;
+  resetZoom();
 
-  // Load preview immediately from 1080px LANCZOS thumbnail (crisp, instantaneous, ~100KB)
-  imgCurrent.src = `/thumb/${enc}`;
+  initCardDeck();
+  updateLightboxHeader(index);
 
-  // Pre-load next card image behind for seamless Tinder stack depth
+  const enc = getPhotoEnc(currentPhotosList[index]);
   const nextIdx = (index + 1) % currentPhotosList.length;
   const nextEnc = getPhotoEnc(currentPhotosList[nextIdx]);
-  imgBehind.src = `/thumb/${nextEnc}`;
 
-  // Seamlessly swap current image to full resolution photo once loaded
-  const token = ++lightboxToken;
-  const fullImg = new Image();
-  fullImg.onload = () => {
-    if (token === lightboxToken) {
-      imgCurrent.src = fullImg.src;
-    }
-  };
-  fullImg.src = `/photo/${enc}`;
+  // Load Studio 1600px HD preview directly (crisp, instantaneous, zero size jump)
+  activeImg.src = `/preview/${enc}`;
+  behindImg.src = `/preview/${nextEnc}`;
 
-  // Reset Card Stack Positions
-  cardCurrent.style.transition = 'none';
-  cardCurrent.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
-  cardCurrent.style.opacity = '1';
+  // Reset Card Stack Positions (cardA on top, cardB behind)
+  activeCard.className = 'stack-card card-current';
+  activeCard.style.zIndex = '2';
+  activeCard.style.transition = 'none';
+  activeCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+  activeCard.style.opacity = '1';
+  activeCard.style.filter = 'brightness(1)';
 
-  cardBehind.style.transition = 'none';
-  cardBehind.style.transform = 'scale(0.92) translate3d(0, 0, 0)';
-  cardBehind.style.opacity = '0.7';
-  cardBehind.style.filter = 'brightness(0.85)';
+  behindCard.className = 'stack-card card-behind';
+  behindCard.style.zIndex = '1';
+  behindCard.style.transition = 'none';
+  behindCard.style.transform = 'scale(0.92) translate3d(0, 16px, 0)';
+  behindCard.style.opacity = '0.95';
+  behindCard.style.filter = 'brightness(0.85)';
 
   const modal = $('photoLightboxModal');
   if (modal.hidden) {
     modal.hidden = false;
     requestAnimationFrame(() => {
       modal.classList.add('active');
-      cardCurrent.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.32s ease';
+      activeCard.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.32s ease';
     });
   }
 
-  // Preload adjacent photos for instant navigation
+  // Preload adjacent photos for instant transitions
   const prevIdx = (index - 1 + currentPhotosList.length) % currentPhotosList.length;
-  new Image().src = `/thumb/${nextEnc}`;
-  new Image().src = `/thumb/${getPhotoEnc(currentPhotosList[prevIdx])}`;
+  const next2Idx = (index + 2) % currentPhotosList.length;
+  new Image().src = `/preview/${getPhotoEnc(currentPhotosList[prevIdx])}`;
+  new Image().src = `/preview/${getPhotoEnc(currentPhotosList[next2Idx])}`;
+}
+
+// Seamless Card Role Swap after Throw-Out Animation
+function finishTransition(targetIdx) {
+  currentPhotoIndex = targetIdx;
+  updateLightboxHeader(targetIdx);
+
+  // behindCard has smoothly animated into center and is already showing target photo!
+  behindCard.className = 'stack-card card-current';
+  behindCard.style.zIndex = '2';
+  behindCard.style.transition = 'none';
+  behindCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+  behindCard.style.filter = 'brightness(1)';
+  behindCard.style.opacity = '1';
+
+  // activeCard was thrown off screen. Place it silently behind as the new depth layer:
+  activeCard.className = 'stack-card card-behind';
+  activeCard.style.zIndex = '1';
+  activeCard.style.transition = 'none';
+  activeCard.style.transform = 'scale(0.92) translate3d(0, 16px, 0)';
+  activeCard.style.filter = 'brightness(0.85)';
+  activeCard.style.opacity = '0.95';
+
+  // Preload next upcoming photo into the card now behind
+  const upcomingIdx = (targetIdx + 1) % currentPhotosList.length;
+  activeImg.src = `/preview/${getPhotoEnc(currentPhotosList[upcomingIdx])}`;
+
+  // Swap pointers: behindCard is now activeCard, activeCard is now behindCard
+  const tempCard = activeCard; activeCard = behindCard; behindCard = tempCard;
+  const tempImg = activeImg; activeImg = behindImg; behindImg = tempImg;
+
+  // Background preload previous photo
+  const prevIdx = (targetIdx - 1 + currentPhotosList.length) % currentPhotosList.length;
+  new Image().src = `/preview/${getPhotoEnc(currentPhotosList[prevIdx])}`;
+
+  dragDirection = 0;
+  isTransitioning = false;
+  isCardDragging = false;
+  currentDragX = 0;
+  currentDragY = 0;
 }
 
 function navigateLightbox(direction) {
-  if (isTransitioning) return;
+  if (isTransitioning || currentPhotosList.length <= 1) return;
   isTransitioning = true;
 
-  const cardCurrent = $('cardCurrent');
-  const cardBehind = $('cardBehind');
+  const targetIdx = direction > 0
+    ? (currentPhotoIndex + 1) % currentPhotosList.length
+    : (currentPhotoIndex - 1 + currentPhotosList.length) % currentPhotosList.length;
+
+  // Ensure behindCard is ready with target photo
+  behindImg.src = `/preview/${getPhotoEnc(currentPhotosList[targetIdx])}`;
+
+  // dir: Next throws card left (-1), Prev throws card right (1)
   const dir = direction > 0 ? -1 : 1;
   const flyX = dir * (window.innerWidth + 200);
 
-  // Smooth Throw-Out Animation
-  cardCurrent.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
-  cardCurrent.style.transform = `translate3d(${flyX}px, 0, 0) rotate(${dir * 16}deg)`;
-  cardCurrent.style.opacity = '0';
+  // Smooth Card Flight Animation (Matching Dribbble Video)
+  activeCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.28s cubic-bezier(0.5, 0, 1, 1)';
+  activeCard.style.transform = `translate3d(${flyX}px, 0, 0) rotate(${dir * 14}deg)`;
+  activeCard.style.opacity = '0';
 
-  cardBehind.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease, filter 0.24s ease';
-  cardBehind.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
-  cardBehind.style.opacity = '1';
-  cardBehind.style.filter = 'brightness(1)';
+  behindCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), filter 0.28s ease';
+  behindCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+  behindCard.style.filter = 'brightness(1)';
 
   playSwipeSound();
 
   setTimeout(() => {
-    isTransitioning = false;
-    openPhotoLightbox(currentPhotoIndex + direction);
-  }, 220);
+    finishTransition(targetIdx);
+  }, 280);
 }
 
 function closeLightbox() {
@@ -1201,8 +1285,8 @@ function closeLightbox() {
   modal.classList.remove('active');
   setTimeout(() => {
     modal.hidden = true;
-    $('lightboxImg').src = '';
-    $('imgBehind').src = '';
+    if (imgA) imgA.src = '';
+    if (imgB) imgB.src = '';
     resetZoom();
   }, 260);
 
@@ -1239,42 +1323,37 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Touch & Mouse Tinder Card Gestures
+// Touch Navigation, Swipe & Pinch-to-Zoom
 const lightboxWrap = $('lightboxImgWrap');
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
 
 function getTouchDist(t1, t2) {
-  return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+  const dx = t1.clientX - t2.clientX;
+  const dy = t1.clientY - t2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 lightboxWrap.addEventListener('touchstart', e => {
   if (isTransitioning) return;
   if (e.touches.length === 2) {
-    // 2 fingers: Pinch-to-zoom
-    isCardDragging = false;
     initialPinchDist = getTouchDist(e.touches[0], e.touches[1]);
     initialPinchScale = zoomScale;
+    isCardDragging = false;
   } else if (e.touches.length === 1) {
     const now = Date.now();
-    const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-    dragStartX = touch.clientX;
-    dragStartY = touch.clientY;
+    dragStartX = e.touches[0].clientX;
+    dragStartY = e.touches[0].clientY;
+    startPanX = e.touches[0].clientX - panX;
+    startPanY = e.touches[0].clientY - panY;
     currentDragX = 0;
     currentDragY = 0;
-    startPanX = touch.clientX - panX;
-    startPanY = touch.clientY - panY;
+    dragDirection = 0;
 
+    // Double-tap to Toggle 2.5x Zoom
     if (now - lastTap < 300) {
-      // Double tap toggle zoom
-      if (zoomScale > 1.05) {
+      if (zoomScale > 1) {
         resetZoom();
       } else {
-        zoomScale = 2.4;
+        zoomScale = 2.5;
         panX = 0;
         panY = 0;
         updateImgTransform();
@@ -1288,15 +1367,14 @@ lightboxWrap.addEventListener('touchstart', e => {
       isPanning = true;
     } else {
       isCardDragging = true;
-      const cardCurrent = $('cardCurrent');
-      const cardBehind = $('cardBehind');
-      if (cardCurrent) cardCurrent.style.transition = 'none';
-      if (cardBehind) cardBehind.style.transition = 'none';
+      if (activeCard) activeCard.style.transition = 'none';
+      if (behindCard) behindCard.style.transition = 'none';
     }
   }
 }, { passive: false });
 
 lightboxWrap.addEventListener('touchmove', e => {
+  if (isTransitioning) return;
   if (e.touches.length === 2 && initialPinchDist > 0) {
     e.preventDefault();
     const currentDist = getTouchDist(e.touches[0], e.touches[1]);
@@ -1316,18 +1394,26 @@ lightboxWrap.addEventListener('touchmove', e => {
       currentDragX = diffX;
       currentDragY = diffY;
 
-      const rot = Math.max(Math.min(diffX * 0.045, 14), -14);
-      const cardCurrent = $('cardCurrent');
-      const cardBehind = $('cardBehind');
-
-      if (cardCurrent) {
-        cardCurrent.style.transform = `translate3d(${diffX}px, ${diffY * 0.3}px, 0) rotate(${rot}deg)`;
+      // Ensure behind card displays correct photo for drag direction
+      if (diffX > 5 && dragDirection !== 1) {
+        dragDirection = 1;
+        const prevIdx = (currentPhotoIndex - 1 + currentPhotosList.length) % currentPhotosList.length;
+        behindImg.src = `/preview/${getPhotoEnc(currentPhotosList[prevIdx])}`;
+      } else if (diffX < -5 && dragDirection !== -1) {
+        dragDirection = -1;
+        const nextIdx = (currentPhotoIndex + 1) % currentPhotosList.length;
+        behindImg.src = `/preview/${getPhotoEnc(currentPhotosList[nextIdx])}`;
       }
-      if (cardBehind) {
+
+      const rot = Math.max(Math.min(diffX * 0.045, 14), -14);
+      if (activeCard) {
+        activeCard.style.transform = `translate3d(${diffX}px, ${diffY * 0.3}px, 0) rotate(${rot}deg)`;
+        activeCard.style.opacity = '1';
+      }
+      if (behindCard) {
         const progress = Math.min(Math.abs(diffX) / 180, 1);
-        cardBehind.style.transform = `scale(${0.92 + 0.08 * progress}) translate3d(0, 0, 0)`;
-        cardBehind.style.opacity = `${0.7 + 0.3 * progress}`;
-        cardBehind.style.filter = `brightness(${0.85 + 0.15 * progress})`;
+        behindCard.style.transform = `scale(${0.92 + 0.08 * progress}) translate3d(0, ${16 * (1 - progress)}px, 0)`;
+        behindCard.style.filter = `brightness(${0.85 + 0.15 * progress})`;
       }
     }
   }
@@ -1342,38 +1428,41 @@ lightboxWrap.addEventListener('touchend', e => {
     if (isCardDragging && zoomScale <= 1.05) {
       isCardDragging = false;
       const diffX = currentDragX;
-      const cardCurrent = $('cardCurrent');
-      const cardBehind = $('cardBehind');
 
-      if (Math.abs(diffX) > 60) {
+      if (Math.abs(diffX) > 60 && !isTransitioning) {
         // Swipe Threshold Exceeded: Throw Card Out with Momentum!
         isTransitioning = true;
         const dir = diffX > 0 ? 1 : -1; // 1 = right (prev), -1 = left (next)
+        const targetIdx = dir === 1
+          ? (currentPhotoIndex - 1 + currentPhotosList.length) % currentPhotosList.length
+          : (currentPhotoIndex + 1) % currentPhotosList.length;
         const flyX = dir * (window.innerWidth + 200);
 
-        cardCurrent.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
-        cardCurrent.style.transform = `translate3d(${flyX}px, ${currentDragY * 0.5}px, 0) rotate(${dir * 16}deg)`;
-        cardCurrent.style.opacity = '0';
+        activeCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.28s cubic-bezier(0.5, 0, 1, 1)';
+        activeCard.style.transform = `translate3d(${flyX}px, ${currentDragY * 0.4}px, 0) rotate(${dir * 14}deg)`;
+        activeCard.style.opacity = '0';
 
-        cardBehind.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease, filter 0.24s ease';
-        cardBehind.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
-        cardBehind.style.opacity = '1';
-        cardBehind.style.filter = 'brightness(1)';
+        behindCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), filter 0.28s ease';
+        behindCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+        behindCard.style.filter = 'brightness(1)';
 
         playSwipeSound();
 
         setTimeout(() => {
-          isTransitioning = false;
-          openPhotoLightbox(currentPhotoIndex - dir);
-        }, 220);
+          finishTransition(targetIdx);
+        }, 280);
       } else {
         // Snap Back to Center with Spring Bounce
-        cardCurrent.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        cardCurrent.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
-
-        cardBehind.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.26s ease';
-        cardBehind.style.transform = 'scale(0.92) translate3d(0, 0, 0)';
-        cardBehind.style.opacity = '0.7';
+        if (activeCard) {
+          activeCard.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          activeCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+        }
+        if (behindCard) {
+          behindCard.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.26s ease';
+          behindCard.style.transform = 'scale(0.92) translate3d(0, 16px, 0)';
+          behindCard.style.filter = 'brightness(0.85)';
+        }
+        dragDirection = 0;
       }
     }
     if (zoomScale < 1.05) {
@@ -1382,7 +1471,7 @@ lightboxWrap.addEventListener('touchend', e => {
   }
 }, { passive: true });
 
-// Desktop Mouse Wheel Zoom & Mouse Drag Pan
+// Desktop Mouse Wheel Zoom & Drag Swiping
 lightboxWrap.addEventListener('wheel', e => {
   e.preventDefault();
   const delta = e.deltaY * -0.002;
@@ -1396,25 +1485,103 @@ lightboxWrap.addEventListener('wheel', e => {
 }, { passive: false });
 
 let mouseIsDown = false;
+let mouseStartX = 0;
+let mouseStartY = 0;
+let mouseDragX = 0;
+let mouseDragY = 0;
+
 lightboxWrap.addEventListener('mousedown', e => {
+  if (isTransitioning) return;
+  mouseIsDown = true;
+  mouseStartX = e.clientX;
+  mouseStartY = e.clientY;
+  mouseDragX = 0;
+  mouseDragY = 0;
   if (zoomScale > 1.05) {
     e.preventDefault();
-    mouseIsDown = true;
     startPanX = e.clientX - panX;
     startPanY = e.clientY - panY;
+  } else {
+    dragDirection = 0;
+    if (activeCard) activeCard.style.transition = 'none';
+    if (behindCard) behindCard.style.transition = 'none';
   }
 });
 
 window.addEventListener('mousemove', e => {
-  if (mouseIsDown && zoomScale > 1.05) {
+  if (!mouseIsDown || isTransitioning) return;
+  if (zoomScale > 1.05) {
     panX = e.clientX - startPanX;
     panY = e.clientY - startPanY;
     updateImgTransform();
+  } else {
+    const diffX = e.clientX - mouseStartX;
+    const diffY = e.clientY - mouseStartY;
+    mouseDragX = diffX;
+    mouseDragY = diffY;
+
+    if (diffX > 5 && dragDirection !== 1) {
+      dragDirection = 1;
+      const prevIdx = (currentPhotoIndex - 1 + currentPhotosList.length) % currentPhotosList.length;
+      behindImg.src = `/preview/${getPhotoEnc(currentPhotosList[prevIdx])}`;
+    } else if (diffX < -5 && dragDirection !== -1) {
+      dragDirection = -1;
+      const nextIdx = (currentPhotoIndex + 1) % currentPhotosList.length;
+      behindImg.src = `/preview/${getPhotoEnc(currentPhotosList[nextIdx])}`;
+    }
+
+    const rot = Math.max(Math.min(diffX * 0.045, 14), -14);
+    if (activeCard) {
+      activeCard.style.transform = `translate3d(${diffX}px, ${diffY * 0.3}px, 0) rotate(${rot}deg)`;
+      activeCard.style.opacity = '1';
+    }
+    if (behindCard) {
+      const progress = Math.min(Math.abs(diffX) / 180, 1);
+      behindCard.style.transform = `scale(${0.92 + 0.08 * progress}) translate3d(0, ${16 * (1 - progress)}px, 0)`;
+      behindCard.style.filter = `brightness(${0.85 + 0.15 * progress})`;
+    }
   }
 });
 
 window.addEventListener('mouseup', () => {
+  if (!mouseIsDown) return;
   mouseIsDown = false;
+  if (zoomScale <= 1.05 && !isTransitioning) {
+    const diffX = mouseDragX;
+    if (Math.abs(diffX) > 60) {
+      isTransitioning = true;
+      const dir = diffX > 0 ? 1 : -1;
+      const targetIdx = dir === 1
+        ? (currentPhotoIndex - 1 + currentPhotosList.length) % currentPhotosList.length
+        : (currentPhotoIndex + 1) % currentPhotosList.length;
+      const flyX = dir * (window.innerWidth + 200);
+
+      activeCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.28s cubic-bezier(0.5, 0, 1, 1)';
+      activeCard.style.transform = `translate3d(${flyX}px, ${mouseDragY * 0.4}px, 0) rotate(${dir * 14}deg)`;
+      activeCard.style.opacity = '0';
+
+      behindCard.style.transition = 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1), filter 0.28s ease';
+      behindCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+      behindCard.style.filter = 'brightness(1)';
+
+      playSwipeSound();
+
+      setTimeout(() => {
+        finishTransition(targetIdx);
+      }, 280);
+    } else {
+      if (activeCard) {
+        activeCard.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        activeCard.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+      }
+      if (behindCard) {
+        behindCard.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.26s ease';
+        behindCard.style.transform = 'scale(0.92) translate3d(0, 16px, 0)';
+        behindCard.style.filter = 'brightness(0.85)';
+      }
+      dragDirection = 0;
+    }
+  }
 });
 
 // Floating Action Button to Overview
