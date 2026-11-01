@@ -436,12 +436,18 @@
   }
   .drop-box:hover { border-color: var(--accent); }
 
-  /* High-Resolution Photo Lightbox */
+  /* High-Resolution Photo Lightbox with Apple-Standard Motion & Tinder Card Stack */
   .lightbox-backdrop {
-    position: fixed; inset: 0; background: rgba(5, 12, 10, 0.96);
-    backdrop-filter: blur(14px); display: flex; flex-direction: column;
+    position: fixed; inset: 0; background: rgba(5, 12, 10, 0.94);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    display: flex; flex-direction: column;
     align-items: center; justify-content: space-between; z-index: 2000; padding: 0.75rem 1rem;
-    user-select: none;
+    user-select: none; -webkit-user-select: none;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lightbox-backdrop.active {
+    opacity: 1; pointer-events: auto;
   }
   .lightbox-topbar {
     width: 100%; max-width: 1200px; display: flex; justify-content: space-between;
@@ -480,28 +486,83 @@
   .btn-lightbox-action.btn-4k:hover {
     filter: brightness(1.08); transform: translateY(-1px);
   }
-  .lightbox-close-btn {
+  .lightbox-icon-btn {
     background: rgba(255, 255, 255, 0.16);
     border: 1px solid rgba(255, 255, 255, 0.25);
     color: #ffffff; width: 38px; height: 38px; border-radius: 50%;
     font-size: 1.4rem; line-height: 1; display: flex;
     align-items: center; justify-content: center; cursor: pointer;
-    transition: all 0.15s ease; margin-left: 0.35rem;
+    transition: all 0.15s ease; margin-left: 0.25rem; flex-shrink: 0;
   }
-  .lightbox-close-btn:hover {
+  .lightbox-icon-btn:hover {
     background: rgba(255, 255, 255, 0.32); transform: scale(1.08);
   }
+
+  /* Card Stack Stage for Tinder-Style Swipe Physics */
   .lightbox-img-wrap {
     flex: 1; display: flex; align-items: center; justify-content: center;
     max-width: 1200px; width: 100%; overflow: hidden; position: relative;
-    touch-action: none; cursor: grab;
+    touch-action: none; perspective: 1200px;
   }
-  .lightbox-img-wrap:active { cursor: grabbing; }
+  .card-stage {
+    position: relative; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stack-card {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    will-change: transform, opacity;
+    user-select: none; -webkit-user-select: none;
+    transform-origin: center center;
+  }
+  .card-behind {
+    z-index: 1; transform: scale(0.92) translate3d(0, 0, 0);
+    opacity: 0.7; filter: brightness(0.85); pointer-events: none;
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease, filter 0.24s ease;
+  }
+  .card-current {
+    z-index: 2; transform: scale(1) translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1; cursor: grab;
+  }
+  .card-current:active {
+    cursor: grabbing;
+  }
   .lightbox-img {
-    max-width: 100%; max-height: 84vh; object-fit: contain; border-radius: 10px;
-    box-shadow: 0 15px 45px rgba(0,0,0,0.6); transition: opacity 0.25s ease;
+    max-width: 100%; max-height: 84vh; object-fit: contain; border-radius: 12px;
+    box-shadow: 0 16px 50px rgba(0,0,0,0.65);
+    pointer-events: none;
     transform-origin: center center;
     will-change: transform;
+  }
+
+  /* Focused Photo Pulse on Back-Scroll */
+  @keyframes focusedPhotoPulse {
+    0% { transform: scale(1); outline: 3px solid rgba(16, 185, 129, 0); }
+    30% { transform: scale(1.03); outline: 3px solid #10b981; box-shadow: 0 10px 28px rgba(16, 185, 129, 0.3); }
+    100% { transform: scale(1); outline: 3px solid rgba(16, 185, 129, 0); }
+  }
+  .focused-photo-pulse {
+    animation: focusedPhotoPulse 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Floating Back to Overview Button */
+  .fab-overview {
+    position: fixed; bottom: 2rem; right: 1.5rem;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 900;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s;
+    opacity: 0; pointer-events: none; transform: translateY(16px);
+  }
+  .fab-overview.visible {
+    opacity: 1; pointer-events: auto; transform: translateY(0);
+  }
+  .fab-overview:hover {
+    transform: translateY(-3px) scale(1.06);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
   }
 
   /* Navigation Arrows */
@@ -625,7 +686,7 @@
 
 </div>
 
-<!-- High-Resolution Lightbox Modal with Arrows, Swipe, Pinch-To-Zoom & MD Spinner Loader -->
+<!-- High-Resolution Lightbox Modal with Tinder-Style Card Stack, Audio & Smooth Apple Physics -->
 <div id="photoLightboxModal" class="lightbox-backdrop" hidden>
   <div class="lightbox-topbar">
     <div style="display:flex;align-items:center;gap:0.75rem;min-width:0;">
@@ -633,15 +694,19 @@
       <span id="lightboxFilename" class="lightbox-title">Photo</span>
     </div>
     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:nowrap;">
-      <a id="lightboxDownloadHdBtn" href="#" download class="btn-lightbox-action btn-hd" title="Download Full HD (1080p) from VPS">
+      <a id="lightboxDownloadHdBtn" href="#" download class="btn-lightbox-action btn-hd" title="Download Full HD (1080p)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>Download HD</span>
       </a>
-      <a id="lightboxDownload4kBtn" href="#" target="_blank" class="btn-lightbox-action btn-4k" title="Download Raw 4K from Google Drive">
+      <a id="lightboxDownload4kBtn" href="#" download class="btn-lightbox-action btn-4k" title="Download Original 4K (Full Resolution RAW)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span>Download 4K</span>
       </a>
-      <button id="closeLightboxBtn" class="lightbox-close-btn" title="Close Lightbox (Esc)">&times;</button>
+      <button id="lightboxSoundBtn" class="lightbox-icon-btn" title="Toggle Sound" aria-label="Toggle Sound">
+        <svg id="soundIconOn" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <svg id="soundIconOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+      <button id="closeLightboxBtn" class="lightbox-icon-btn" title="Close Lightbox (Esc)" style="font-size:1.4rem;line-height:1;">&times;</button>
     </div>
   </div>
 
@@ -653,17 +718,15 @@
       </svg>
     </button>
 
-    <!-- Center Image (Zoomable & Pannable) -->
-    <img id="lightboxImg" class="lightbox-img" alt="High Resolution Photo">
-
-    <!-- MagniDigitech Spinner Loader with logo.svg -->
-    <div id="lightboxLoader" class="md-loader">
-      <div class="md-loader-ring"></div>
-      <div class="md-loader-badge">
-        <svg viewBox="0 0 5000 5000">
-          <path fill="#C2302A" d="M1625.8 1708.29l-348.09 -439.43c-51.09,19.05 -55.03,31.58 -87.96,75.26 -87.28,115.76 -107.52,126.83 -199.95,279.87 -635,1051.33 72.94,2560.37 1416.73,2621.4l-1.21 -403.49c-927.78,-82.98 -1464.94,-984.65 -1159.15,-1820.44l40.93 -71.81c84.81,78.31 273.58,376.63 358.86,416.47l350.7 -437.47 0.39 1468.07 404.31 2.89 5.27 -2638.01 -53.91 52.35c-19.53,23.3 -28,36.97 -49.36,63.31 -97.62,120.39 -623.23,793.63 -677.56,831.04z"/>
-          <path fill="#FFCC29" d="M2595.15 3400.22l406.78 -1.87 2.76 -2140.88c246,74.39 498.64,318.8 632.93,529.16 524.17,821.1 -3.74,1977.69 -1040.01,2054.57l-2.95 404.02c905.92,-33.73 1650.61,-811.43 1651.08,-1745.32 0.47,-941.41 -742.17,-1699.63 -1650.23,-1745.3l-0.35 2645.61z"/>
-        </svg>
+    <!-- Card Stage for Tinder/Apple Card Stack Animation -->
+    <div class="card-stage" id="cardStage">
+      <!-- Underlying card (depth layer) -->
+      <div class="stack-card card-behind" id="cardBehind">
+        <img id="imgBehind" class="lightbox-img" alt="Adjacent Photo">
+      </div>
+      <!-- Top active card -->
+      <div class="stack-card card-current" id="cardCurrent">
+        <img id="lightboxImg" class="lightbox-img" alt="Current Photo">
       </div>
     </div>
 
@@ -675,6 +738,13 @@
     </button>
   </div>
 </div>
+
+<!-- Floating Action Button to Overview -->
+<button id="fabToOverview" class="fab-overview" aria-label="Back to Overview" title="Back to Overview">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"></polyline>
+  </svg>
+</button>
 
 <!-- Selfie Upload Modal -->
 <div id="selfieModal" class="modal-backdrop" hidden>
@@ -928,17 +998,80 @@ let startPanY = 0;
 let initialPinchDist = 0;
 let initialPinchScale = 1;
 let lastTap = 0;
+let lightboxToken = 0;
+
+// Card Drag / Tinder-Swipe State
+let isCardDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let currentDragX = 0;
+let currentDragY = 0;
+let isTransitioning = false;
+
+// Web Audio API Swipe Sound & Mute Preference
+let audioCtx = null;
+let isSoundMuted = localStorage.getItem('magni_gallery_muted') === 'true';
+
+function updateSoundButton() {
+  const onIcon = $('soundIconOn');
+  const offIcon = $('soundIconOff');
+  const btn = $('lightboxSoundBtn');
+  if (onIcon && offIcon) {
+    onIcon.style.display = isSoundMuted ? 'none' : 'block';
+    offIcon.style.display = isSoundMuted ? 'block' : 'none';
+  }
+  if (btn) {
+    btn.title = isSoundMuted ? 'Unmute Swipe Sound' : 'Mute Swipe Sound';
+  }
+}
+
+function playSwipeSound() {
+  if (isSoundMuted) return;
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(450, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.045);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  } catch (e) {}
+}
+
+$('lightboxSoundBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  isSoundMuted = !isSoundMuted;
+  localStorage.setItem('magni_gallery_muted', isSoundMuted);
+  updateSoundButton();
+});
+updateSoundButton();
 
 function updateImgTransform() {
-  const img = $('lightboxImg');
-  if (!img) return;
+  const card = $('cardCurrent');
+  if (!card) return;
   if (zoomScale <= 1) {
     zoomScale = 1;
     panX = 0;
     panY = 0;
-    img.style.transform = '';
+    card.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
   } else {
-    img.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+    card.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoomScale})`;
   }
 }
 
@@ -951,8 +1084,20 @@ function resetZoom() {
   updateImgTransform();
 }
 
-// High-Resolution Lightbox Viewer
-function openPhotoLightbox(index) {
+function getPhotoEnc(item) {
+  if (!item) return '';
+  const p = typeof item === 'string' ? item : item.rel_path;
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
+function getPhotoFilename(item) {
+  if (!item) return '';
+  const p = typeof item === 'string' ? item : item.rel_path;
+  return p.split('/').pop();
+}
+
+// High-Resolution Lightbox Viewer with Tinder-Style Card Stack & Apple Physics
+function openPhotoLightbox(index, animationDir = 0) {
   if (currentPhotosList.length === 0) return;
   if (index < 0) index = currentPhotosList.length - 1;
   if (index >= currentPhotosList.length) index = 0;
@@ -960,66 +1105,116 @@ function openPhotoLightbox(index) {
   resetZoom();
 
   const item = currentPhotosList[index];
-  const p = typeof item === 'string' ? item : item.rel_path;
-  const enc = p.split('/').map(encodeURIComponent).join('/');
-  const filename = p.split('/').pop();
-  const driveId = typeof item === 'object' ? item.drive_file_id : null;
+  const enc = getPhotoEnc(item);
+  const filename = getPhotoFilename(item);
 
   $('lightboxCounter').textContent = `${index + 1} / ${currentPhotosList.length}`;
   $('lightboxFilename').textContent = filename;
   $('lightboxFilename').title = filename;
 
-  // Set Dual Download Buttons in Lightbox top bar
+  // Set Direct Server Download Buttons (NO Google Drive Login Prompt!)
   const hdBtn = $('lightboxDownloadHdBtn');
   hdBtn.href = `/download/hd/${enc}`;
-  hdBtn.setAttribute('download', filename);
+  hdBtn.setAttribute('download', `${filename.replace(/\.[^/.]+$/, "")}_HD.jpg`);
 
   const btn4k = $('lightboxDownload4kBtn');
-  if (driveId) {
-    btn4k.href = `https://drive.google.com/uc?id=${driveId}&export=download`;
-    btn4k.style.display = 'inline-flex';
-  } else {
-    btn4k.style.display = 'none';
-  }
+  btn4k.href = `/download/4k/${enc}`;
+  btn4k.setAttribute('download', filename);
+
+  const cardCurrent = $('cardCurrent');
+  const cardBehind = $('cardBehind');
+  const imgCurrent = $('lightboxImg');
+  const imgBehind = $('imgBehind');
 
   // Load preview immediately from 1080px LANCZOS thumbnail (crisp, instantaneous, ~100KB)
-  const img = $('lightboxImg');
-  $('lightboxLoader').hidden = true;
-  img.style.opacity = '1';
-  img.src = `/thumb/${enc}`;
+  imgCurrent.src = `/thumb/${enc}`;
 
-  // Seamlessly swap to full resolution photo once loaded
+  // Pre-load next card image behind for seamless Tinder stack depth
+  const nextIdx = (index + 1) % currentPhotosList.length;
+  const nextEnc = getPhotoEnc(currentPhotosList[nextIdx]);
+  imgBehind.src = `/thumb/${nextEnc}`;
+
+  // Seamlessly swap current image to full resolution photo once loaded
+  const token = ++lightboxToken;
   const fullImg = new Image();
   fullImg.onload = () => {
-    if (currentPhotoIndex === index) {
-      img.src = fullImg.src;
+    if (token === lightboxToken) {
+      imgCurrent.src = fullImg.src;
     }
   };
   fullImg.src = `/photo/${enc}`;
 
-  $('photoLightboxModal').hidden = false;
+  // Reset Card Stack Positions
+  cardCurrent.style.transition = 'none';
+  cardCurrent.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+  cardCurrent.style.opacity = '1';
+
+  cardBehind.style.transition = 'none';
+  cardBehind.style.transform = 'scale(0.92) translate3d(0, 0, 0)';
+  cardBehind.style.opacity = '0.7';
+  cardBehind.style.filter = 'brightness(0.85)';
+
+  const modal = $('photoLightboxModal');
+  if (modal.hidden) {
+    modal.hidden = false;
+    requestAnimationFrame(() => {
+      modal.classList.add('active');
+      cardCurrent.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.32s ease';
+    });
+  }
 
   // Preload adjacent photos for instant navigation
-  const nextIdx = (index + 1) % currentPhotosList.length;
   const prevIdx = (index - 1 + currentPhotosList.length) % currentPhotosList.length;
-  const nextItem = currentPhotosList[nextIdx];
-  const prevItem = currentPhotosList[prevIdx];
-  const nextEnc = (typeof nextItem === 'string' ? nextItem : nextItem.rel_path).split('/').map(encodeURIComponent).join('/');
-  const prevEnc = (typeof prevItem === 'string' ? prevItem : prevItem.rel_path).split('/').map(encodeURIComponent).join('/');
   new Image().src = `/thumb/${nextEnc}`;
-  new Image().src = `/thumb/${prevEnc}`;
+  new Image().src = `/thumb/${getPhotoEnc(currentPhotosList[prevIdx])}`;
 }
 
 function navigateLightbox(direction) {
-  openPhotoLightbox(currentPhotoIndex + direction);
+  if (isTransitioning) return;
+  isTransitioning = true;
+
+  const cardCurrent = $('cardCurrent');
+  const cardBehind = $('cardBehind');
+  const dir = direction > 0 ? -1 : 1;
+  const flyX = dir * (window.innerWidth + 200);
+
+  // Smooth Throw-Out Animation
+  cardCurrent.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+  cardCurrent.style.transform = `translate3d(${flyX}px, 0, 0) rotate(${dir * 16}deg)`;
+  cardCurrent.style.opacity = '0';
+
+  cardBehind.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease, filter 0.24s ease';
+  cardBehind.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+  cardBehind.style.opacity = '1';
+  cardBehind.style.filter = 'brightness(1)';
+
+  playSwipeSound();
+
+  setTimeout(() => {
+    isTransitioning = false;
+    openPhotoLightbox(currentPhotoIndex + direction);
+  }, 220);
 }
 
 function closeLightbox() {
-  $('photoLightboxModal').hidden = true;
-  $('lightboxImg').src = '';
-  $('lightboxImg').style.opacity = '0';
-  $('lightboxLoader').hidden = true;
-  resetZoom();
+  const modal = $('photoLightboxModal');
+  modal.classList.remove('active');
+  setTimeout(() => {
+    modal.hidden = true;
+    $('lightboxImg').src = '';
+    $('imgBehind').src = '';
+    resetZoom();
+  }, 260);
+
+  // Restore Scroll Position: smoothly bring currently viewed photo into view!
+  const allCards = document.querySelectorAll('.photo-card');
+  if (allCards && allCards[currentPhotoIndex]) {
+    allCards[currentPhotoIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    allCards[currentPhotoIndex].classList.add('focused-photo-pulse');
+    setTimeout(() => {
+      allCards[currentPhotoIndex]?.classList.remove('focused-photo-pulse');
+    }, 1200);
+  }
 }
 
 // Lightbox Controls
@@ -1044,7 +1239,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Touch Gestures: Pinch-to-Zoom, Pan Drag, Double Tap & Swipe
+// Touch & Mouse Tinder Card Gestures
 const lightboxWrap = $('lightboxImgWrap');
 let touchStartX = 0;
 let touchStartY = 0;
@@ -1056,16 +1251,21 @@ function getTouchDist(t1, t2) {
 }
 
 lightboxWrap.addEventListener('touchstart', e => {
+  if (isTransitioning) return;
   if (e.touches.length === 2) {
     // 2 fingers: Pinch-to-zoom
+    isCardDragging = false;
     initialPinchDist = getTouchDist(e.touches[0], e.touches[1]);
     initialPinchScale = zoomScale;
   } else if (e.touches.length === 1) {
-    // 1 finger: Double tap OR Pan OR Swipe
     const now = Date.now();
     const touch = e.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
+    dragStartX = touch.clientX;
+    dragStartY = touch.clientY;
+    currentDragX = 0;
+    currentDragY = 0;
     startPanX = touch.clientX - panX;
     startPanY = touch.clientY - panY;
 
@@ -1086,6 +1286,12 @@ lightboxWrap.addEventListener('touchstart', e => {
 
     if (zoomScale > 1.05) {
       isPanning = true;
+    } else {
+      isCardDragging = true;
+      const cardCurrent = $('cardCurrent');
+      const cardBehind = $('cardBehind');
+      if (cardCurrent) cardCurrent.style.transition = 'none';
+      if (cardBehind) cardBehind.style.transition = 'none';
     }
   }
 }, { passive: false });
@@ -1097,11 +1303,33 @@ lightboxWrap.addEventListener('touchmove', e => {
     const factor = currentDist / initialPinchDist;
     zoomScale = Math.min(Math.max(initialPinchScale * factor, 1), 4.5);
     updateImgTransform();
-  } else if (e.touches.length === 1 && isPanning && zoomScale > 1.05) {
-    e.preventDefault();
-    panX = e.touches[0].clientX - startPanX;
-    panY = e.touches[0].clientY - startPanY;
-    updateImgTransform();
+  } else if (e.touches.length === 1) {
+    if (isPanning && zoomScale > 1.05) {
+      e.preventDefault();
+      panX = e.touches[0].clientX - startPanX;
+      panY = e.touches[0].clientY - startPanY;
+      updateImgTransform();
+    } else if (isCardDragging && zoomScale <= 1.05) {
+      e.preventDefault();
+      const diffX = e.touches[0].clientX - dragStartX;
+      const diffY = e.touches[0].clientY - dragStartY;
+      currentDragX = diffX;
+      currentDragY = diffY;
+
+      const rot = Math.max(Math.min(diffX * 0.045, 14), -14);
+      const cardCurrent = $('cardCurrent');
+      const cardBehind = $('cardBehind');
+
+      if (cardCurrent) {
+        cardCurrent.style.transform = `translate3d(${diffX}px, ${diffY * 0.3}px, 0) rotate(${rot}deg)`;
+      }
+      if (cardBehind) {
+        const progress = Math.min(Math.abs(diffX) / 180, 1);
+        cardBehind.style.transform = `scale(${0.92 + 0.08 * progress}) translate3d(0, 0, 0)`;
+        cardBehind.style.opacity = `${0.7 + 0.3 * progress}`;
+        cardBehind.style.filter = `brightness(${0.85 + 0.15 * progress})`;
+      }
+    }
   }
 }, { passive: false });
 
@@ -1111,11 +1339,41 @@ lightboxWrap.addEventListener('touchend', e => {
   }
   if (e.touches.length === 0) {
     isPanning = false;
-    if (e.changedTouches.length > 0) {
-      touchEndX = e.changedTouches[0].clientX;
-      touchEndY = e.changedTouches[0].clientY;
-      if (zoomScale <= 1.05) {
-        handleSwipe();
+    if (isCardDragging && zoomScale <= 1.05) {
+      isCardDragging = false;
+      const diffX = currentDragX;
+      const cardCurrent = $('cardCurrent');
+      const cardBehind = $('cardBehind');
+
+      if (Math.abs(diffX) > 60) {
+        // Swipe Threshold Exceeded: Throw Card Out with Momentum!
+        isTransitioning = true;
+        const dir = diffX > 0 ? 1 : -1; // 1 = right (prev), -1 = left (next)
+        const flyX = dir * (window.innerWidth + 200);
+
+        cardCurrent.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+        cardCurrent.style.transform = `translate3d(${flyX}px, ${currentDragY * 0.5}px, 0) rotate(${dir * 16}deg)`;
+        cardCurrent.style.opacity = '0';
+
+        cardBehind.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease, filter 0.24s ease';
+        cardBehind.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+        cardBehind.style.opacity = '1';
+        cardBehind.style.filter = 'brightness(1)';
+
+        playSwipeSound();
+
+        setTimeout(() => {
+          isTransitioning = false;
+          openPhotoLightbox(currentPhotoIndex - dir);
+        }, 220);
+      } else {
+        // Snap Back to Center with Spring Bounce
+        cardCurrent.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        cardCurrent.style.transform = 'scale(1) translate3d(0, 0, 0) rotate(0deg)';
+
+        cardBehind.style.transition = 'transform 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.26s ease';
+        cardBehind.style.transform = 'scale(0.92) translate3d(0, 0, 0)';
+        cardBehind.style.opacity = '0.7';
       }
     }
     if (zoomScale < 1.05) {
@@ -1123,18 +1381,6 @@ lightboxWrap.addEventListener('touchend', e => {
     }
   }
 }, { passive: true });
-
-function handleSwipe() {
-  const diffX = touchEndX - touchStartX;
-  const diffY = touchEndY - touchStartY;
-  if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY)) {
-    if (diffX < 0) {
-      navigateLightbox(1);
-    } else {
-      navigateLightbox(-1);
-    }
-  }
-}
 
 // Desktop Mouse Wheel Zoom & Mouse Drag Pan
 lightboxWrap.addEventListener('wheel', e => {
@@ -1170,6 +1416,17 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', () => {
   mouseIsDown = false;
 });
+
+// Floating Action Button to Overview
+const fab = $('fabToOverview');
+if (fab) {
+  window.addEventListener('scroll', () => {
+    fab.classList.toggle('visible', window.scrollY > 350);
+  }, { passive: true });
+  fab.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
 
 $('closePhotosBtn').addEventListener('click', () => {
   $('photosSection').hidden = true;

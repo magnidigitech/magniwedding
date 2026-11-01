@@ -714,8 +714,70 @@ def photo(name: str):
 
 @app.get("/download/hd/{name:path}")
 def download_hd(name: str):
-    """Downloads HD photo directly from VPS storage as an attachment without Google Drive redirects."""
+    """Downloads HD (1080p/1920p) optimized photo directly from VPS storage as attachment."""
     fname = Path(name).name
+    stem = Path(name).stem
+    ext = Path(name).suffix or ".jpg"
+    hd_filename = f"{stem}_HD{ext}"
+
+    # 1. Check if 1080p thumb already cached
+    cache_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if cache_thumb.exists():
+        return FileResponse(
+            cache_thumb,
+            filename=hd_filename,
+            media_type="image/jpeg",
+            headers={"Content-Disposition": f'attachment; filename="{hd_filename}"'}
+        )
+
+    # 2. Check event-scoped thumbs
+    if name.startswith("events/"):
+        parts = name.split("/", 2)
+        if len(parts) >= 3:
+            ev_thumb = DATA / "events" / parts[1] / "thumbs" / (parts[2].replace("/", "__") + ".jpg")
+            if ev_thumb.exists():
+                return FileResponse(
+                    ev_thumb,
+                    filename=hd_filename,
+                    media_type="image/jpeg",
+                    headers={"Content-Disposition": f'attachment; filename="{hd_filename}"'}
+                )
+
+    # 3. Generate 1080p/1920p HD on the fly from original on disk
+    target = PHOTOS / name
+    if not target.exists():
+        matches = list(PHOTOS.glob(f"**/{fname}"))
+        if matches:
+            target = matches[0]
+
+    if target.exists():
+        try:
+            cache_thumb.parent.mkdir(parents=True, exist_ok=True)
+            with Image.open(target) as img:
+                img = ImageOps.exif_transpose(img).convert("RGB")
+                img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+                img.save(cache_thumb, "JPEG", quality=86, optimize=True)
+            return FileResponse(
+                cache_thumb,
+                filename=hd_filename,
+                media_type="image/jpeg",
+                headers={"Content-Disposition": f'attachment; filename="{hd_filename}"'}
+            )
+        except Exception:
+            return FileResponse(
+                target,
+                filename=hd_filename,
+                media_type="image/jpeg",
+                headers={"Content-Disposition": f'attachment; filename="{hd_filename}"'}
+            )
+
+    raise HTTPException(404, "HD photo not available on server")
+
+@app.get("/download/4k/{name:path}")
+def download_4k(name: str):
+    """Downloads original full-resolution 4K file directly from server without requiring Google login."""
+    fname = Path(name).name
+    # 1. Check if original photo exists on VPS storage
     target = PHOTOS / name
     if not target.exists():
         matches = list(PHOTOS.glob(f"**/{fname}"))
@@ -730,29 +792,20 @@ def download_hd(name: str):
             headers={"Content-Disposition": f'attachment; filename="{fname}"'}
         )
 
-    # Fallback to high-res 1080p thumbnail on VPS
-    direct_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
-    if direct_thumb.exists():
-        return FileResponse(
-            direct_thumb,
-            filename=fname,
-            media_type="image/jpeg",
-            headers={"Content-Disposition": f'attachment; filename="{fname}"'}
-        )
+    # 2. Fallback to Google Drive direct stream without login barrier
+    reload_drive_map()
+    drive_id = drive_map.get(name) or drive_map.get(fname)
+    if not drive_id:
+        for k, v in drive_map.items():
+            if k.endswith(fname):
+                drive_id = v
+                break
 
-    if name.startswith("events/"):
-        parts = name.split("/", 2)
-        if len(parts) >= 3:
-            ev_thumb = DATA / "events" / parts[1] / "thumbs" / (parts[2].replace("/", "__") + ".jpg")
-            if ev_thumb.exists():
-                return FileResponse(
-                    ev_thumb,
-                    filename=fname,
-                    media_type="image/jpeg",
-                    headers={"Content-Disposition": f'attachment; filename="{fname}"'}
-                )
+    if drive_id:
+        gdrive_url = f"https://drive.usercontent.google.com/download?id={drive_id}&export=download&confirm=t"
+        return RedirectResponse(gdrive_url, status_code=302)
 
-    raise HTTPException(404, "HD photo not available on server")
+    raise HTTPException(404, "Original 4K photo not found")
 
 # --- Public Event Metadata APIs ---
 
