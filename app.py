@@ -674,9 +674,31 @@ def thumb(name: str):
 
 @app.get("/photo/{name:path}")
 def photo(name: str):
-    """Delivers full image or redirects directly to Google Drive 5TB storage."""
-    reload_drive_map()
+    """Delivers photo directly from VPS without redirecting to Google Drive."""
     fname = Path(name).name
+    target = PHOTOS / name
+    if not target.exists():
+        matches = list(PHOTOS.glob(f"**/{fname}"))
+        if matches:
+            target = matches[0]
+
+    if target.exists():
+        return FileResponse(target, filename=fname)
+
+    # Fallback to high-res thumbnail on VPS if original was pruned
+    direct_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if direct_thumb.exists():
+        return FileResponse(direct_thumb, filename=fname)
+
+    if name.startswith("events/"):
+        parts = name.split("/", 2)
+        if len(parts) >= 3:
+            ev_thumb = DATA / "events" / parts[1] / "thumbs" / (parts[2].replace("/", "__") + ".jpg")
+            if ev_thumb.exists():
+                return FileResponse(ev_thumb, filename=fname)
+
+    # Fallback to Google Drive only if file not present on VPS
+    reload_drive_map()
     drive_id = drive_map.get(name) or drive_map.get(fname)
     if not drive_id:
         for k, v in drive_map.items():
@@ -688,14 +710,49 @@ def photo(name: str):
             f"https://drive.google.com/uc?export=download&id={drive_id}",
             status_code=302
         )
+    raise HTTPException(404, "Photo not found")
+
+@app.get("/download/hd/{name:path}")
+def download_hd(name: str):
+    """Downloads HD photo directly from VPS storage as an attachment without Google Drive redirects."""
+    fname = Path(name).name
     target = PHOTOS / name
     if not target.exists():
         matches = list(PHOTOS.glob(f"**/{fname}"))
         if matches:
             target = matches[0]
-        else:
-            raise HTTPException(404, "Photo not found")
-    return FileResponse(target, filename=fname)
+
+    if target.exists():
+        return FileResponse(
+            target,
+            filename=fname,
+            media_type="image/jpeg",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'}
+        )
+
+    # Fallback to high-res 1080p thumbnail on VPS
+    direct_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
+    if direct_thumb.exists():
+        return FileResponse(
+            direct_thumb,
+            filename=fname,
+            media_type="image/jpeg",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'}
+        )
+
+    if name.startswith("events/"):
+        parts = name.split("/", 2)
+        if len(parts) >= 3:
+            ev_thumb = DATA / "events" / parts[1] / "thumbs" / (parts[2].replace("/", "__") + ".jpg")
+            if ev_thumb.exists():
+                return FileResponse(
+                    ev_thumb,
+                    filename=fname,
+                    media_type="image/jpeg",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'}
+                )
+
+    raise HTTPException(404, "HD photo not available on server")
 
 # --- Public Event Metadata APIs ---
 

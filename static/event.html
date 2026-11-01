@@ -310,12 +310,14 @@
     margin-bottom: 1.25rem;
     display: inline-block;
     width: 100%;
-    background: var(--card);
+    min-height: 220px;
+    background: #e4ebe7;
     border-radius: 14px;
     overflow: hidden;
     box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     border: 1px solid var(--line);
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+    cursor: pointer;
   }
   .photo-card:hover {
     transform: translateY(-4px);
@@ -323,6 +325,7 @@
   }
   .photo-img {
     width: 100%;
+    min-height: 220px;
     height: auto;
     display: block;
     cursor: pointer;
@@ -874,40 +877,17 @@ function renderPhotos(photosList) {
       const p = typeof item === 'string' ? item : item.rel_path;
       const enc = p.split('/').map(encodeURIComponent).join('/');
       const filename = p.split('/').pop();
-      const driveId = typeof item === 'object' ? item.drive_file_id : null;
       const isFeat = typeof item === 'object' && item.is_featured;
 
       const card = document.createElement('div');
       card.className = 'photo-card';
       card.style.position = 'relative';
 
-      let downloadBtnsHtml = `
-        <a class="photo-btn btn-hd" href="/photo/${enc}" download="${filename}" title="Download HD (1080p)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>HD</span>
-        </a>
-      `;
-
-      if (driveId) {
-        downloadBtnsHtml += `
-          <a class="photo-btn btn-4k" href="https://drive.google.com/uc?id=${driveId}&export=download" target="_blank" title="Download Original 4K RAW from Google Drive">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>4K</span>
-          </a>
-        `;
-      }
-
       card.innerHTML = `
-        ${isFeat ? '<span style="position:absolute;top:8px;right:8px;background:rgba(217,119,6,0.92);color:#fff;padding:2px 8px;border-radius:12px;font-size:0.7rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.2);z-index:2;">★ Featured</span>' : ''}
+        ${isFeat ? '<span style="position:absolute;top:10px;right:10px;background:rgba(217,119,6,0.92);color:#fff;padding:3px 9px;border-radius:12px;font-size:0.72rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.25);z-index:2;pointer-events:none;">★ Featured</span>' : ''}
         <img class="photo-img" src="/thumb/${enc}" alt="${filename}" loading="lazy">
-        <div class="photo-actions">
-          <span class="photo-filename" title="${filename}">${filename}</span>
-          <div class="photo-download-group">
-            ${downloadBtnsHtml}
-          </div>
-        </div>
       `;
-      card.querySelector('.photo-img').addEventListener('click', () => openPhotoLightbox(idx));
+      card.addEventListener('click', () => openPhotoLightbox(idx));
       grid.append(card);
     }
   }
@@ -964,9 +944,9 @@ function openPhotoLightbox(index) {
   $('lightboxFilename').textContent = filename;
   $('lightboxFilename').title = filename;
 
-  // Set Dual Download Buttons
+  // Set Dual Download Buttons in Lightbox top bar
   const hdBtn = $('lightboxDownloadHdBtn');
-  hdBtn.href = `/photo/${enc}`;
+  hdBtn.href = `/download/hd/${enc}`;
   hdBtn.setAttribute('download', filename);
 
   const btn4k = $('lightboxDownload4kBtn');
