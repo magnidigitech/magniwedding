@@ -789,10 +789,10 @@
     <h1 style="font-size:1.35rem;font-weight:700;margin-bottom:0.35rem;">MagniWedding Admin</h1>
     <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Enter your administrative security key to access the multi-event console.</p>
     
-    <form id="loginForm">
+    <form id="loginForm" onsubmit="handleAdminLogin(); return false;">
       <div class="field">
         <label for="adminKey">Security Passkey</label>
-        <input type="password" id="adminKey" required placeholder="••••••••••••">
+        <input type="password" id="adminKey" required placeholder="••••••••••••" autocomplete="current-password">
       </div>
       <button type="submit" id="loginBtn" class="btn-primary" style="width:100%;justify-content:center;padding:0.75rem;">Authenticate</button>
       <div id="loginAlert" style="margin-top:0.8rem;color:var(--err);font-size:0.82rem;" hidden></div>
@@ -1095,6 +1095,14 @@
             <button id="selectAllBtn" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.8rem;">Select All</button>
             <button id="clearSelectBtn" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.8rem;" hidden>Clear</button>
             <span id="selectedCountBadge" style="font-size:0.85rem;font-weight:600;color:var(--primary);" hidden>0 selected</span>
+            <button id="ajaxRefreshBtn" onclick="ajaxRefreshPhotos()" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.8rem;display:inline-flex;align-items:center;gap:0.35rem;">
+              <svg id="ajaxRefreshIcon" class="icon-sm" viewBox="0 0 24 24" style="transition:transform 0.4s ease;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span id="ajaxRefreshBtnText">Refresh</span>
+            </button>
+            <label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8rem;color:var(--muted);cursor:pointer;">
+              <input type="checkbox" id="autoRefreshCheckbox" checked style="width:14px;height:14px;accent-color:var(--primary);">
+              <span>Live Auto-Sync</span>
+            </label>
           </div>
 
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;" id="bulkActionGroup" hidden>
@@ -1459,6 +1467,72 @@
   </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteConfirmModal" class="modal-backdrop" hidden>
+  <div class="modal-card" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('deleteConfirmModal')">&times;</button>
+    <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+      <svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    </div>
+    <h2 id="deleteModalTitle" style="font-size:1.2rem;font-weight:700;margin-bottom:0.4rem;">Confirm Deletion</h2>
+    <p id="deleteModalDesc" style="color:var(--muted);font-size:0.85rem;line-height:1.5;margin-bottom:1.5rem;">Are you sure you want to proceed with this deletion? This action cannot be undone.</p>
+    <div style="display:flex;justify-content:flex-end;gap:0.75rem;">
+      <button type="button" class="btn-outline" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+      <button type="button" id="deleteModalConfirmBtn" class="btn-primary" style="background:#ef4444;border-color:#ef4444;">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div id="editEventModal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('editEventModal')">&times;</button>
+    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:0.35rem;">Edit Event</h2>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Update the event name, slug URL, location, and description.</p>
+    <form id="editEventForm">
+      <input type="hidden" id="editEventOldSlug">
+      <div class="field">
+        <label>Event Name</label>
+        <input type="text" id="editEventName" required>
+      </div>
+      <div class="field">
+        <label>URL Slug (wedding.magnidigitech.com/&lt;slug&gt;)</label>
+        <input type="text" id="editEventSlug" required>
+      </div>
+      <div class="field">
+        <label>Location</label>
+        <input type="text" id="editEventLocation">
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <textarea id="editEventDesc" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.7rem;">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Album Modal -->
+<div id="editAlbumModal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('editAlbumModal')">&times;</button>
+    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:0.35rem;">Edit Album / Folder</h2>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Update folder display name and directory slug.</p>
+    <form id="editAlbumForm">
+      <input type="hidden" id="editAlbumId">
+      <div class="field">
+        <label>Folder Name</label>
+        <input type="text" id="editAlbumName" required>
+      </div>
+      <div class="field">
+        <label>Folder Slug</label>
+        <input type="text" id="editAlbumSlug" required>
+      </div>
+      <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:0.7rem;">Save Folder</button>
+    </form>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 
@@ -1554,7 +1628,7 @@ function openDeleteConfirmModal(title, desc, confirmCallback) {
   pendingDeleteAction = confirmCallback;
   openModal('deleteConfirmModal');
 }
-$('deleteModalConfirmBtn').addEventListener('click', async () => {
+$('deleteModalConfirmBtn')?.addEventListener('click', async () => {
   if (pendingDeleteAction) {
     const btn = $('deleteModalConfirmBtn');
     btn.disabled = true;
@@ -1595,7 +1669,7 @@ async function ajaxRefreshPhotos() {
   }
 }
 
-$('thresholdRange').addEventListener('input', e => {
+$('thresholdRange')?.addEventListener('input', e => {
   $('thresholdVal').textContent = parseFloat(e.target.value).toFixed(2);
 });
 
@@ -1641,14 +1715,18 @@ async function checkAuth() {
   }
 }
 
-$('loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const key = $('adminKey').value.trim();
+async function handleAdminLogin() {
+  const keyInput = $('adminKey');
+  if (!keyInput) return;
+  const key = keyInput.value.trim();
   if (!key) return;
   const btn = $('loginBtn');
-  btn.disabled = true;
-  btn.textContent = 'Authenticating...';
-  $('loginAlert').hidden = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Authenticating...';
+  }
+  const alertEl = $('loginAlert');
+  if (alertEl) alertEl.hidden = true;
   try {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
@@ -1664,16 +1742,27 @@ $('loginForm').addEventListener('submit', async e => {
       await checkAuth();
       switchTab('dashboard');
     } else {
-      $('loginAlert').textContent = j.detail || 'Invalid security passkey.';
-      $('loginAlert').hidden = false;
+      if (alertEl) {
+        alertEl.textContent = j.detail || 'Invalid security passkey.';
+        alertEl.hidden = false;
+      }
     }
   } catch (err) {
-    $('loginAlert').textContent = 'Server connection error: ' + (err.message || 'Unable to reach backend.');
-    $('loginAlert').hidden = false;
+    if (alertEl) {
+      alertEl.textContent = 'Server connection error: ' + (err.message || 'Unable to reach backend.');
+      alertEl.hidden = false;
+    }
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Authenticate';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Authenticate';
+    }
   }
+}
+
+$('loginForm')?.addEventListener('submit', async e => {
+  if (e) e.preventDefault();
+  await handleAdminLogin();
 });
 
 $('logoutBtn').addEventListener('click', async () => {
@@ -1836,7 +1925,7 @@ function selectUploadTargetAlbum(slug, name) {
   });
 }
 
-$('btnFastIndexActive').addEventListener('click', async () => {
+$('btnFastIndexActive')?.addEventListener('click', async () => {
   $('btnFastIndexActive').disabled = true;
   await fetch(`/api/admin/events/${activeSlug}/index`, { method: 'POST' });
   pollTaskStatus();
@@ -1904,7 +1993,7 @@ function openEditEventModal(eventSlug, eventName) {
   openModal('editEventModal');
 }
 
-$('editEventForm').addEventListener('submit', async e => {
+$('editEventForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const oldSlug = $('editEventOldSlug').value;
   const name = $('editEventName').value.trim();
@@ -1983,7 +2072,7 @@ function openEditAlbumModal(albumId, albumName, albumSlug) {
   openModal('editAlbumModal');
 }
 
-$('editAlbumForm').addEventListener('submit', async e => {
+$('editAlbumForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const id = $('editAlbumId').value;
   const name = $('editAlbumName').value.trim();
@@ -2128,7 +2217,7 @@ function updateBulkToolbar() {
   $('bulkActionGroup').hidden = count === 0;
 }
 
-$('selectAllBtn').addEventListener('click', () => {
+$('selectAllBtn')?.addEventListener('click', () => {
   document.querySelectorAll('.photo-check').forEach(cb => {
     cb.checked = true;
     selectedPhotoIds.add(Number(cb.getAttribute('data-id')));
@@ -2137,7 +2226,7 @@ $('selectAllBtn').addEventListener('click', () => {
   updateBulkToolbar();
 });
 
-$('clearSelectBtn').addEventListener('click', () => {
+$('clearSelectBtn')?.addEventListener('click', () => {
   document.querySelectorAll('.photo-check').forEach(cb => {
     cb.checked = false;
     cb.closest('.photo-item').classList.remove('selected');
@@ -2146,7 +2235,7 @@ $('clearSelectBtn').addEventListener('click', () => {
   updateBulkToolbar();
 });
 
-$('bulkMoveBtn').addEventListener('click', async () => {
+$('bulkMoveBtn')?.addEventListener('click', async () => {
   const targetAlbumId = $('bulkTargetAlbumSelect').value;
   await fetch(`/api/admin/events/${activeSlug}/photos/bulk-move`, {
     method: 'POST',
@@ -2160,9 +2249,9 @@ $('bulkMoveBtn').addEventListener('click', async () => {
   await setEventWorkspace(activeSlug, false);
 });
 
-$('bulkFeatureBtn').addEventListener('click', () => runBulkAction('feature'));
-$('bulkHideBtn').addEventListener('click', () => runBulkAction('hide'));
-$('bulkDeleteBtn').addEventListener('click', () => {
+$('bulkFeatureBtn')?.addEventListener('click', () => runBulkAction('feature'));
+$('bulkHideBtn')?.addEventListener('click', () => runBulkAction('hide'));
+$('bulkDeleteBtn')?.addEventListener('click', () => {
   if (selectedPhotoIds.size === 0) return;
   openDeleteConfirmModal(
     `Delete ${selectedPhotoIds.size} Selected Photos?`,
@@ -2230,7 +2319,7 @@ async function loadPeople() {
   } catch (e) {}
 }
 
-$('reclusterPeopleBtn').addEventListener('click', async () => {
+$('reclusterPeopleBtn')?.addEventListener('click', async () => {
   $('reclusterPeopleBtn').disabled = true;
   await fetch(`/api/admin/events/${activeSlug}/people/recluster`, {
     method: 'POST',
@@ -2247,7 +2336,7 @@ function openRenamePersonModal(id, currentName) {
   openModal('renamePersonModal');
 }
 
-$('renamePersonForm').addEventListener('submit', async e => {
+$('renamePersonForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const id = $('renamePersonId').value;
   const name = $('renamePersonNameInput').value.trim();
@@ -2352,7 +2441,7 @@ function setupUploadTab() {
   }
 }
 
-$('startGdriveSyncBtn').addEventListener('click', async () => {
+$('startGdriveSyncBtn')?.addEventListener('click', async () => {
   const url = $('gdriveUrlInput').value.trim();
   if (!url) { alert('Please enter a Google Drive folder URL'); return; }
   const albumSlug = $('gdriveCustomSlugInput').value.trim() || $('gdriveTargetAlbumSelect').value || 'gdrive_photos';
@@ -2391,8 +2480,8 @@ $('startGdriveSyncBtn').addEventListener('click', async () => {
   }
 });
 
-$('uploadDropArea').addEventListener('click', () => $('directFileInput').click());
-$('directFileInput').addEventListener('change', async () => {
+$('uploadDropArea')?.addEventListener('click', () => $('directFileInput')?.click());
+$('directFileInput')?.addEventListener('change', async () => {
   const files = $('directFileInput').files;
   if (!files || files.length === 0) return;
   const albumSlug = activeUploadAlbumSlug || $('uploadTargetAlbumSelect').value || 'highlights';
@@ -2672,15 +2761,17 @@ async function loadLogs() {
   } catch (e) {}
 }
 
-$('refreshLogsBtn').addEventListener('click', loadLogs);
-$('toggleRawLogsBtn').addEventListener('click', () => {
+$('refreshLogsBtn')?.addEventListener('click', loadLogs);
+$('toggleRawLogsBtn')?.addEventListener('click', () => {
   const blk = $('rawSystemLogsBlock');
-  blk.hidden = !blk.hidden;
-  if (!blk.hidden) loadLogs();
+  if (blk) {
+    blk.hidden = !blk.hidden;
+    if (!blk.hidden) loadLogs();
+  }
 });
 
 // Create Event
-$('createEventForm').addEventListener('submit', async e => {
+$('createEventForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const payload = {
     name: $('evName').value.trim(),
@@ -2706,7 +2797,7 @@ $('createEventForm').addEventListener('submit', async e => {
 });
 
 // Create Album
-$('createAlbumForm').addEventListener('submit', async e => {
+$('createAlbumForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const payload = {
     name: $('albumNameInput').value.trim(),
