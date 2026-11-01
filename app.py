@@ -345,6 +345,17 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
                     if fid:
                         drive_map[f"{rel_prefix}/{fname}"] = fid
                         drive_map[fname] = fid
+                    # Ensure active status in database for existing file
+                    try:
+                        conn_chk = get_db()
+                        conn_chk.execute("""
+                            UPDATE photos SET is_deleted = 0 
+                            WHERE event_id = (SELECT id FROM events WHERE slug = ?) AND filename = ?
+                        """, (event_slug, fname))
+                        conn_chk.commit()
+                        conn_chk.close()
+                    except Exception:
+                        pass
                     processed_count += 1
                     continue
 
@@ -484,12 +495,13 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
                                 did = v
                                 break
                     cursor.execute("""
-                        INSERT INTO photos (event_id, album_id, filename, rel_path, drive_file_id, file_size_bytes)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        INSERT INTO photos (event_id, album_id, filename, rel_path, drive_file_id, file_size_bytes, is_deleted)
+                        VALUES (?, ?, ?, ?, ?, ?, 0)
                         ON CONFLICT(event_id, rel_path) DO UPDATE SET
                             album_id = excluded.album_id,
                             drive_file_id = COALESCE(excluded.drive_file_id, photos.drive_file_id),
-                            file_size_bytes = excluded.file_size_bytes
+                            file_size_bytes = excluded.file_size_bytes,
+                            is_deleted = 0
                     """, (eid, album_id, img_path.name, rel, did, fsize))
             conn.commit()
         conn.close()
@@ -921,11 +933,15 @@ def sync_event_folders_and_photos(slug: str):
                     rel = str(f.relative_to(PHOTOS))
                     fsize = f.stat().st_size
                     cursor.execute("""
-                        INSERT OR IGNORE INTO photos (event_id, album_id, filename, rel_path, file_size_bytes)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO photos (event_id, album_id, filename, rel_path, file_size_bytes, is_deleted)
+                        VALUES (?, ?, ?, ?, ?, 0)
+                        ON CONFLICT(event_id, rel_path) DO UPDATE SET
+                            album_id = excluded.album_id,
+                            file_size_bytes = excluded.file_size_bytes,
+                            is_deleted = 0
                     """, (eid, album_id, f.name, rel, fsize))
                     cursor.execute("""
-                        UPDATE photos SET album_id = ? WHERE event_id = ? AND rel_path = ? AND (album_id IS NULL OR album_id = 0)
+                        UPDATE photos SET album_id = ?, is_deleted = 0 WHERE event_id = ? AND rel_path = ?
                     """, (album_id, eid, rel))
 
         # Direct files in event root
@@ -1030,28 +1046,116 @@ def admin_create_album(slug: str, payload: dict, token: str = Depends(get_auth_t
         
     return {"status": "ok", "album_slug": album_slug}
 
+@app.put("/api/admin/events/{slug}")
+def admin_update_event(slug: str, payload: dict, token: str = Depends(get_auth_token)):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE slug = ?", (slug,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise HTTPException(404, "Event not found")
+
+    new_slug = re.sub(r"[^a-zA-Z0-9_-]", "-", payload.get("slug", slug).strip().lower()).strip("-") or slug
+    name = payload.get("name", "").strip() or event["name"]
+    location = payload.get("location", event["location"] or "")
+    description = payload.get("description", event["description"] or "")
+
+    # Prevent renaming active slug if a task is running into it
+    if current_task.get("status") == "running" and current_task.get("event") == slug and new_slug != slug:
+        conn.close()
+        raise HTTPException(409, "Cannot rename event slug while a background task is running on it. Please wait for completion.")
+
+    if new_slug != slug:
+        cursor.execute("SELECT id FROM events WHERE slug = ?", (new_slug,))
+        if cursor.fetchone():
+            conn.close()
+            raise HTTPException(400, f"Event slug '{new_slug}' is already in use.")
+
+        # Rename directories on disk
+        old_photos_dir = PHOTOS / "events" / slug
+        new_photos_dir = PHOTOS / "events" / new_slug
+        if old_photos_dir.exists():
+            try: old_photos_dir.rename(new_photos_dir)
+            except Exception as e: append_log(f"Warning renaming photos dir: {e}")
+
+        old_data_dir = DATA / "events" / slug
+        new_data_dir = DATA / "events" / new_slug
+        if old_data_dir.exists():
+            try: old_data_dir.rename(new_data_dir)
+            except Exception as e: append_log(f"Warning renaming data dir: {e}")
+
+        # Update photo rel_paths
+        cursor.execute("UPDATE photos SET rel_path = replace(rel_path, ?, ?) WHERE event_id = ?",
+                       (f"events/{slug}/", f"events/{new_slug}/", event["id"]))
+
+    cursor.execute("""
+        UPDATE events
+        SET slug = ?, name = ?, location = ?, description = ?
+        WHERE id = ?
+    """, (new_slug, name, location, description, event["id"]))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "slug": new_slug, "name": name}
+
 @app.put("/api/admin/events/{slug}/albums/{album_id}")
 def admin_update_album(slug: str, album_id: int, payload: dict, token: str = Depends(get_auth_token)):
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("SELECT a.*, e.id as eid FROM albums a JOIN events e ON a.event_id = e.id WHERE a.id = ? AND e.slug = ?", (album_id, slug))
+    album = cursor.fetchone()
+    if not album:
+        conn.close()
+        raise HTTPException(404, "Album not found")
+
+    old_slug = album["slug"]
+    new_slug = re.sub(r"[^a-zA-Z0-9_-]", "-", payload.get("slug", old_slug).strip().lower()).strip("-") or old_slug
+    name = payload.get("name", "").strip() or album["name"]
+
+    if new_slug != old_slug:
+        cursor.execute("SELECT id FROM albums WHERE event_id = ? AND slug = ? AND id != ?", (album["eid"], new_slug, album_id))
+        if cursor.fetchone():
+            conn.close()
+            raise HTTPException(400, f"Album slug '{new_slug}' already exists in this event.")
+
+        # Rename directory on disk
+        if slug in {"default", "wedding"}:
+            old_dir = PHOTOS / old_slug
+            new_dir = PHOTOS / new_slug
+            old_rel = old_slug + "/"
+            new_rel = new_slug + "/"
+        else:
+            old_dir = PHOTOS / "events" / slug / old_slug
+            new_dir = PHOTOS / "events" / slug / new_slug
+            old_rel = f"events/{slug}/{old_slug}/"
+            new_rel = f"events/{slug}/{new_slug}/"
+
+        if old_dir.exists():
+            try: old_dir.rename(new_dir)
+            except Exception as e: append_log(f"Warning renaming folder on disk: {e}")
+
+        # Update photo rel_paths
+        cursor.execute("UPDATE photos SET rel_path = replace(rel_path, ?, ?) WHERE album_id = ?", (old_rel, new_rel, album_id))
+
     cursor.execute("""
         UPDATE albums
-        SET name = COALESCE(?, name),
+        SET name = ?,
+            slug = ?,
             is_published = COALESCE(?, is_published),
             sort_order = COALESCE(?, sort_order),
             cover_image_path = COALESCE(?, cover_image_path)
-        WHERE id = ? AND event_id = (SELECT id FROM events WHERE slug = ?)
+        WHERE id = ?
     """, (
-        payload.get("name"),
+        name,
+        new_slug,
         payload.get("is_published"),
         payload.get("sort_order"),
         payload.get("cover_image_path"),
-        album_id,
-        slug
+        album_id
     ))
     conn.commit()
     conn.close()
-    return {"status": "ok"}
+    return {"status": "ok", "album_slug": new_slug, "name": name}
 
 @app.delete("/api/admin/events/{slug}/albums/{album_id}")
 def admin_delete_album(slug: str, album_id: int, token: str = Depends(get_auth_token)):

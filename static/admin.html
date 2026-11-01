@@ -1461,7 +1461,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let activeSlug = 'rahul-priya';
+let activeSlug = localStorage.getItem('admin_active_event_slug') || 'anilkumar-vengamamba';
 let allEvents = [];
 let allAlbums = [];
 let currentEvent = null;
@@ -1469,7 +1469,7 @@ let selectedPhotoIds = new Set();
 let activeFilterAlbumId = '';
 let activeUploadAlbumSlug = '';
 
-// Navigation Tabs Handling
+// Navigation Tabs Handling with State Persistence
 function switchTab(tabName) {
   // Sync Sidebar active states
   document.querySelectorAll('.nav-item').forEach(item => {
@@ -1480,6 +1480,14 @@ function switchTab(tabName) {
   document.querySelectorAll('main.workspace-canvas section').forEach(sec => sec.hidden = true);
   const target = $(`panel-${tabName}`);
   if (target) target.hidden = false;
+
+  localStorage.setItem('admin_active_tab', tabName);
+  try {
+    const url = new URL(window.location);
+    url.searchParams.set('event', activeSlug);
+    url.searchParams.set('tab', tabName);
+    window.history.replaceState({}, '', url);
+  } catch(e) {}
 
   if (tabName === 'dashboard') loadDashboard();
   if (tabName === 'events') loadEvents();
@@ -1505,11 +1513,60 @@ function closeModal(id) { $(id).hidden = true; }
 function openNewEventModal() { openModal('eventModal'); }
 function openNewAlbumModal() { openModal('albumModal'); }
 
+// Delete Confirmation Modal Handling
+let pendingDeleteAction = null;
+function openDeleteConfirmModal(title, desc, confirmCallback) {
+  $('deleteModalTitle').textContent = title;
+  $('deleteModalDesc').innerHTML = desc;
+  pendingDeleteAction = confirmCallback;
+  openModal('deleteConfirmModal');
+}
+$('deleteModalConfirmBtn').addEventListener('click', async () => {
+  if (pendingDeleteAction) {
+    const btn = $('deleteModalConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    try {
+      await pendingDeleteAction();
+    } catch (e) {
+      alert('Error during delete: ' + e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Delete Permanently';
+      closeModal('deleteConfirmModal');
+      pendingDeleteAction = null;
+    }
+  }
+});
+
+// AJAX Refresh Photo Library
+let isRefreshingPhotos = false;
+async function ajaxRefreshPhotos() {
+  if (isRefreshingPhotos) return;
+  isRefreshingPhotos = true;
+  const icon = $('ajaxRefreshIcon');
+  const txt = $('ajaxRefreshBtnText');
+  if (icon) icon.style.transform = 'rotate(360deg)';
+  if (txt) txt.textContent = 'Syncing...';
+  try {
+    await loadPhotos($('filterAlbumSelect')?.value || '');
+    await loadAlbums();
+  } catch (e) {
+    console.error('AJAX refresh error:', e);
+  } finally {
+    setTimeout(() => {
+      if (icon) icon.style.transform = 'none';
+      if (txt) txt.textContent = 'Refresh';
+      isRefreshingPhotos = false;
+    }, 450);
+  }
+}
+
 $('thresholdRange').addEventListener('input', e => {
   $('thresholdVal').textContent = parseFloat(e.target.value).toFixed(2);
 });
 
-// Check Authentication Session
+// Check Authentication Session with Saved State
 async function checkAuth() {
   try {
     const res = await fetch('/api/admin/overview');
@@ -1517,9 +1574,22 @@ async function checkAuth() {
       const data = await res.json();
       $('authView').hidden = true;
       $('appShell').hidden = false;
-      populateEventSelector(data.events || []);
+
+      const events = data.events || [];
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetSlug = urlParams.get('event') || localStorage.getItem('admin_active_event_slug');
+      if (targetSlug && events.some(e => e.slug === targetSlug)) {
+        activeSlug = targetSlug;
+      } else if (events.length > 0) {
+        activeSlug = events[0].slug;
+      }
+      localStorage.setItem('admin_active_event_slug', activeSlug);
+
+      populateEventSelector(events);
       await setEventWorkspace(activeSlug, false);
-      loadDashboard();
+
+      const targetTab = urlParams.get('tab') || localStorage.getItem('admin_active_tab') || 'dashboard';
+      switchTab(targetTab);
       pollTaskStatus();
     } else {
       $('authView').hidden = false;
@@ -1752,8 +1822,9 @@ async function loadEvents() {
         </div>
         <div style="color:var(--muted);font-family:monospace;font-size:0.8rem;margin-top:0.2rem;">/${ev.slug}</div>
         <p style="font-size:0.82rem;color:var(--muted);margin:0.5rem 0 0.8rem;">${ev.description || 'No description provided.'}</p>
-        <div style="display:flex;gap:0.5rem;width:100%;">
+        <div style="display:flex;gap:0.5rem;width:100%;flex-wrap:wrap;">
           <button class="btn-primary" style="padding:0.35rem 0.75rem;font-size:0.8rem;" onclick="selectEventWorkspace('${ev.slug}')">Open Workspace</button>
+          <button class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.8rem;" onclick="openEditEventModal('${ev.slug}', '${ev.name}')">Edit</button>
           <a href="/${ev.slug}" target="_blank" class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.8rem;">Live Gallery ↗</a>
         </div>
       `;
@@ -1766,6 +1837,47 @@ async function selectEventWorkspace(slug) {
   await setEventWorkspace(slug, false);
   switchTab('albums');
 }
+
+// Edit Event Modal Handlers
+function openEditEventModal(eventSlug, eventName) {
+  const ev = (allEvents || []).find(e => e.slug === eventSlug) || currentEvent || { slug: eventSlug, name: eventName };
+  $('editEventOldSlug').value = ev.slug;
+  $('editEventName').value = ev.name || '';
+  $('editEventSlug').value = ev.slug || '';
+  $('editEventLocation').value = ev.location || '';
+  $('editEventDesc').value = ev.description || '';
+  openModal('editEventModal');
+}
+
+$('editEventForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const oldSlug = $('editEventOldSlug').value;
+  const name = $('editEventName').value.trim();
+  const slug = $('editEventSlug').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
+  const location = $('editEventLocation').value.trim();
+  const description = $('editEventDesc').value.trim();
+
+  if (!name || !slug) { alert('Name and slug are required'); return; }
+
+  try {
+    const res = await fetch(`/api/admin/events/${oldSlug}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slug, location, description })
+    });
+    if (res.ok) {
+      closeModal('editEventModal');
+      activeSlug = slug;
+      localStorage.setItem('admin_active_event_slug', slug);
+      checkAuth();
+    } else {
+      const j = await res.json();
+      alert(j.detail || 'Failed to update event');
+    }
+  } catch (err) {
+    alert('Error updating event: ' + err);
+  }
+});
 
 // Albums
 async function loadAlbums() {
@@ -1796,9 +1908,10 @@ async function loadAlbums() {
           <h4 style="font-size:1rem;font-weight:700;">${a.name}</h4>
           <div style="font-size:0.78rem;color:var(--muted);font-family:monospace;">slug: ${a.slug}</div>
           <div style="font-size:0.82rem;color:var(--primary);font-weight:600;margin-top:0.2rem;">${a.photo_count || 0} photos</div>
-          <div style="display:flex;gap:0.4rem;margin-top:0.5rem;">
+          <div style="display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap;">
             <button class="btn-primary" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="openAlbumPhotos(${a.id}, '${a.name}')">Browse</button>
-            <button class="btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;color:var(--err);" onclick="deleteAlbum(${a.id})">Delete</button>
+            <button class="btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;" onclick="openEditAlbumModal(${a.id}, '${a.name}', '${a.slug}')">Edit</button>
+            <button class="btn-outline" style="padding:0.25rem 0.6rem;font-size:0.75rem;color:var(--err);" onclick="promptDeleteAlbum(${a.id}, '${a.name}')">Delete</button>
           </div>
         </div>
       `;
@@ -1807,20 +1920,55 @@ async function loadAlbums() {
   } catch (e) {}
 }
 
-async function deleteAlbum(albumId) {
-  if (!confirm('Are you sure you want to delete this album folder and its photos?')) return;
+// Edit Album Modal Handlers
+function openEditAlbumModal(albumId, albumName, albumSlug) {
+  $('editAlbumId').value = albumId;
+  $('editAlbumName').value = albumName;
+  $('editAlbumSlug').value = albumSlug;
+  openModal('editAlbumModal');
+}
+
+$('editAlbumForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = $('editAlbumId').value;
+  const name = $('editAlbumName').value.trim();
+  const slug = $('editAlbumSlug').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
+  if (!name || !slug) { alert('Name and slug are required'); return; }
+
   try {
-    const res = await fetch(`/api/admin/events/${activeSlug}/albums/${albumId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/admin/events/${activeSlug}/albums/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slug })
+    });
     if (res.ok) {
+      closeModal('editAlbumModal');
       await setEventWorkspace(activeSlug, false);
       loadAlbums();
     } else {
       const j = await res.json();
-      alert(j.detail || 'Failed to delete album');
+      alert(j.detail || 'Failed to update album');
     }
-  } catch (e) {
-    alert('Error connecting to server.');
+  } catch (err) {
+    alert('Error updating album: ' + err);
   }
+});
+
+function promptDeleteAlbum(albumId, albumName) {
+  openDeleteConfirmModal(
+    `Delete Folder "${albumName}"?`,
+    `Are you sure you want to permanently delete the folder <strong>"${albumName}"</strong> and its photos? This action cannot be undone.`,
+    async () => {
+      const res = await fetch(`/api/admin/events/${activeSlug}/albums/${albumId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await setEventWorkspace(activeSlug, false);
+        loadAlbums();
+      } else {
+        const j = await res.json();
+        alert(j.detail || 'Failed to delete album');
+      }
+    }
+  );
 }
 
 // Photos (Natural Alphanumeric Sort by Name)
@@ -1866,6 +2014,9 @@ async function loadPhotos(filterAlbumId = '') {
     const photos = (j.photos || []).slice().sort((a, b) => {
       return a.filename.localeCompare(b.filename, undefined, { numeric: true, sensitivity: 'base' });
     });
+
+    const evName = currentEvent ? currentEvent.name : activeSlug;
+    $('photosPanelTitle').textContent = `Photo Library — ${evName} (${photos.length} photos)`;
 
     if (photos.length === 0) {
       grid.innerHTML = '<div style="color:var(--muted);grid-column:1/-1;">No photos in this album.</div>';
@@ -1957,7 +2108,14 @@ $('bulkMoveBtn').addEventListener('click', async () => {
 $('bulkFeatureBtn').addEventListener('click', () => runBulkAction('feature'));
 $('bulkHideBtn').addEventListener('click', () => runBulkAction('hide'));
 $('bulkDeleteBtn').addEventListener('click', () => {
-  if (confirm(`Delete ${selectedPhotoIds.size} selected photos?`)) runBulkAction('delete');
+  if (selectedPhotoIds.size === 0) return;
+  openDeleteConfirmModal(
+    `Delete ${selectedPhotoIds.size} Selected Photos?`,
+    `Are you sure you want to permanently delete <strong>${selectedPhotoIds.size} selected photos</strong>? This action cannot be undone.`,
+    async () => {
+      await runBulkAction('delete');
+    }
+  );
 });
 
 async function runBulkAction(action) {
@@ -2301,6 +2459,14 @@ async function pollTaskStatus() {
 
     const savedMb = task.storage_saved_mb || 0;
     $('taskStorageStat').textContent = `${savedMb.toFixed(1)} MB saved (98.5% VPS offload)`;
+
+    // Live Auto-Sync Photo Library if task is running and user is viewing photos
+    if ((isRunning || status === 'running') && $('autoRefreshCheckbox')?.checked && !isRefreshingPhotos) {
+      const curTab = localStorage.getItem('admin_active_tab');
+      if (curTab === 'photos') {
+        loadPhotos($('filterAlbumSelect')?.value || '');
+      }
+    }
 
     // Polling rate and auto-close timer on completion
     clearTimeout(pollTimer);
