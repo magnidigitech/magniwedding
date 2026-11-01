@@ -1,4 +1,12 @@
 import os, sys, threading, subprocess, secrets, shutil, zipfile, io, re, time
+
+# Limit CPU threads to prevent memory and CPU spikes on VPS
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+
 from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageOps
@@ -42,6 +50,7 @@ lock = threading.Lock()
 # Multi-event vector index cache: { slug: { "embs": ..., "names": ..., "known": ..., "mtime": ... } }
 event_indices = {}
 drive_map = {}
+thumb_semaphore = threading.Semaphore(2)
 
 def reload_drive_map():
     global drive_map
@@ -361,6 +370,19 @@ def run_gdrive_download(url: str, dest_dir: Path, rel_prefix: str, event_slug: s
                     optimize_photo_inplace(dest_file)
                     new_size = dest_file.stat().st_size
                     saved_bytes_total += max(0, orig_size - new_size)
+
+                    # Pre-generate web thumbnail immediately to avoid browser stampede
+                    try:
+                        t_path = DATA / "thumbs" / (f"{rel_prefix}/{fname}".replace("/", "__") + ".jpg")
+                        t_path.parent.mkdir(parents=True, exist_ok=True)
+                        with Image.open(dest_file) as timg:
+                            try: timg.draft("RGB", (480, 480))
+                            except Exception: pass
+                            timg = ImageOps.exif_transpose(timg).convert("RGB")
+                            timg.thumbnail((480, 480))
+                            timg.save(t_path, "JPEG", quality=80, optimize=True)
+                    except Exception:
+                        pass
                     
                     if fid:
                         drive_map[f"{rel_prefix}/{fname}"] = fid
@@ -614,7 +636,7 @@ def thumb(name: str):
     if candidates and candidates[0].exists():
         return FileResponse(candidates[0])
 
-    # 5. On-the-fly thumbnail generation from original photo on disk
+    # 5. On-the-fly thumbnail generation from original photo on disk with concurrency limit
     photo_file = PHOTOS / name
     if not photo_file.exists():
         matches = list(PHOTOS.glob(f"**/{fname}"))
@@ -622,15 +644,23 @@ def thumb(name: str):
             photo_file = matches[0]
 
     if photo_file.exists():
-        try:
-            img = ImageOps.exif_transpose(Image.open(photo_file)).convert("RGB")
-            img.thumbnail((480, 480))
+        with thumb_semaphore:
             cache_thumb = DATA / "thumbs" / (name.replace("/", "__") + ".jpg")
-            cache_thumb.parent.mkdir(parents=True, exist_ok=True)
-            img.save(cache_thumb, quality=80)
-            return FileResponse(cache_thumb)
-        except Exception:
-            return FileResponse(photo_file)
+            if cache_thumb.exists():
+                return FileResponse(cache_thumb)
+            try:
+                cache_thumb.parent.mkdir(parents=True, exist_ok=True)
+                with Image.open(photo_file) as img:
+                    try:
+                        img.draft("RGB", (480, 480))
+                    except Exception:
+                        pass
+                    img = ImageOps.exif_transpose(img).convert("RGB")
+                    img.thumbnail((480, 480))
+                    img.save(cache_thumb, "JPEG", quality=80, optimize=True)
+                return FileResponse(cache_thumb)
+            except Exception:
+                return FileResponse(photo_file)
 
     raise HTTPException(404, "Thumbnail not found")
 
